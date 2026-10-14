@@ -17,11 +17,19 @@ from ramllm.api.server import create_app
 from ramllm.backends import LlamaCppAdapter
 from ramllm.backends.llamacpp.install import detect_llamacpp
 from ramllm.core.analyzer.gguf import analyze_gguf
+from ramllm.core.governor.enforcement import get_current_enforcement_status
 from ramllm.core.governor.monitor import MemoryGovernor
-from ramllm.core.planner import create_execution_plans
+from ramllm.core.planner import create_execution_plans, recommend_models
 from ramllm.core.profiler import load_synthetic_profile, probe_hardware
 from ramllm.core.schemas import UserRequest
-from ramllm.registry.catalog import add_model, list_models, scan_directory
+from ramllm.registry import (
+    add_model,
+    list_models,
+    pull_model,
+    remove_model,
+    scan_directory,
+    verify_model,
+)
 from ramllm.telemetry.bench import run_benchmark
 from ramllm.telemetry.calibration import get_calibration_factor
 from ramllm.util.parsing import parse_bytes, parse_context
@@ -148,23 +156,15 @@ def doctor() -> None:
         console.print("[red]✘[/red] Backend: No llama.cpp found on PATH.")
 
     # 2. OS Memory Enforcement check
-    sys_name = platform.system()
-    if sys_name == "Linux":
-        cgroup_v2 = Path("/sys/fs/cgroup/cgroup.controllers").exists()
-        if cgroup_v2:
-            console.print(
-                "[green]✔[/green] OS Enforcement: Linux cgroups v2 supported (hard limits available)."
-            )
-        else:
-            console.print(
-                "[yellow]![/yellow] OS Enforcement: cgroups v1 or disabled (soft monitoring only)."
-            )
-    elif sys_name == "Windows":
-        console.print("[green]✔[/green] OS Enforcement: Windows Job Objects supported.")
-    elif sys_name == "Darwin":
+    status = get_current_enforcement_status()
+    if status.can_enforce:
         console.print(
-            "[yellow]![/yellow] OS Enforcement: macOS memory pressure dispatch supported (soft limits)."
+            f"[green]✔[/green] OS Enforcement: {status.mechanism} active ({status.detail})"
         )
+    elif status.supported:
+        console.print(f"[yellow]![/yellow] OS Enforcement: {status.mechanism} ({status.detail})")
+    else:
+        console.print(f"[yellow]![/yellow] OS Enforcement: {status.detail}")
 
 
 @models_app.command("add")
@@ -215,6 +215,147 @@ def models_scan(
     with console.status(f"Scanning {directory}..."):
         added = scan_directory(directory)
     console.print(f"[green]✔ Found and registered {len(added)} models.[/green]")
+
+
+@models_app.command("remove")
+def models_remove(
+    name: Annotated[str, typer.Argument(help="Model name, path, or stem to remove")],
+) -> None:
+    """Remove a model entry from the local catalog."""
+    removed = remove_model(name)
+    if removed:
+        console.print(f"[green]✔ Removed '{name}' from catalog.[/green]")
+    else:
+        console.print(f"[yellow]Model '{name}' not found in catalog.[/yellow]")
+
+
+@models_app.command("verify")
+def models_verify(
+    model: Annotated[
+        str | None,
+        typer.Argument(help="Model name or file path to verify (or all if omitted)"),
+    ] = None,
+) -> None:
+    """Compute and verify SHA-256 integrity hash of model file(s)."""
+    targets = [model] if model else [e.name for e in list_models()]
+    if not targets:
+        console.print("No models in catalog to verify.")
+        return
+
+    for t in targets:
+        with console.status(f"Verifying SHA-256 for {t}..."):
+            matched, h, msg = verify_model(t)
+        if matched:
+            console.print(f"[green]✔ {t}[/green]: {msg} (SHA256: {h[:16]}...)")
+        else:
+            console.print(f"[red]✘ {t}[/red]: {msg}")
+
+
+@models_app.command("pull")
+def models_pull(
+    target: Annotated[
+        str,
+        typer.Argument(help="Hugging Face model or direct URL (e.g. 'org/repo:file.gguf')"),
+    ],
+    dest: Annotated[Path | None, typer.Option("--dest", help="Destination directory")] = None,
+    sha256: Annotated[str | None, typer.Option("--sha256", help="Expected SHA256 checksum")] = None,
+) -> None:
+    """Download a model with resumable streaming and checksum verification (offline-first)."""
+    console.print(f"[bold blue]Downloading model from {target}...[/bold blue]")
+    with console.status("[bold blue]Downloading model chunks..."):
+        try:
+            saved_path = pull_model(target, dest_dir=dest, expected_sha256=sha256)
+            console.print(f"[green]✔ Downloaded and registered: {saved_path}[/green]")
+        except Exception as e:
+            console.print(f"[red]Error downloading model: {e}[/red]")
+            raise typer.Exit(code=1) from e
+
+
+@app.command()
+def recommend(
+    vram: Annotated[
+        str | None, typer.Option("--vram", help="VRAM budget (e.g. 6GB or 8GB,6GB)")
+    ] = None,
+    ram: Annotated[str | None, typer.Option("--ram", help="RAM budget (e.g. 12GB)")] = None,
+    gpus: Annotated[
+        str | None, typer.Option("--gpus", help="Comma-separated GPU indices to use (e.g. 0,1)")
+    ] = None,
+    context: Annotated[
+        str, typer.Option("--context", help="Target context window (e.g. 4096, 8k)")
+    ] = "4096",
+    prefer: Annotated[
+        Literal["fastest", "balanced", "fit_at_any_cost"], typer.Option("--prefer")
+    ] = "balanced",
+    cpu_only: Annotated[bool, typer.Option("--cpu-only", help="Disable GPU offloading")] = False,
+    no_kv_quant: Annotated[
+        bool, typer.Option("--no-kv-quant", help="Disallow quantized KV cache")
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Output JSON")] = False,
+    hw_json: Annotated[
+        Path | None, typer.Option("--hw-json", help="Synthetic hardware profile")
+    ] = None,
+) -> None:
+    """Recommend the best-quality models that fit within hardware budgets (offline catalog)."""
+    gpu_indices, vram_dict = _parse_gpu_args(gpus, vram)
+    ram_bytes = parse_bytes(ram)
+    ctx_len = parse_context(context)
+
+    if hw_json:
+        hw = load_synthetic_profile(hw_json)
+    else:
+        hw = probe_hardware(quick=True)
+
+    req = UserRequest(
+        model="",
+        vram_budget_bytes=vram_dict,
+        ram_budget_bytes=ram_bytes,
+        min_context=ctx_len,
+        target_context=ctx_len,
+        preference=prefer,
+        use_gpu=not cpu_only,
+        gpu_indices=gpu_indices,
+        allow_kv_quant=not no_kv_quant,
+    )
+
+    recs = recommend_models(hw, req)
+
+    if as_json:
+        typer.echo(json.dumps([r.model_dump(mode="json") for r in recs], indent=2))
+        return
+
+    if not recs:
+        console.print(
+            "[yellow]No feasible models found in catalog for this hardware configuration.[/yellow]\n"
+            "Use `ramllm models add <path>` or `ramllm models scan <dir>` to register models."
+        )
+        return
+
+    table = Table(title="Model Recommendations", box=box.ROUNDED)
+    table.add_column("Rank", style="bold cyan", width=6)
+    table.add_column("Model", style="white")
+    table.add_column("Params", style="magenta")
+    table.add_column("Quant", style="green")
+    table.add_column("Strategy", style="yellow")
+    table.add_column("Speed", style="cyan")
+    table.add_column("Verdict", style="bold green")
+    table.add_column("Key Advantage", style="dim")
+
+    for i, r in enumerate(recs, 1):
+        bp = r.best_plan
+        speed_str = f"~{bp.speed.decode_tok_s_low}–{bp.speed.decode_tok_s_high} tok/s"
+        advantage = r.reasons[0] if r.reasons else ""
+        table.add_row(
+            f"#{i}",
+            r.name,
+            f"{r.n_params / 1e9:.1f}B",
+            r.quant,
+            bp.id,
+            speed_str,
+            bp.verdict,
+            advantage,
+        )
+
+    console.print(table)
 
 
 @app.command()

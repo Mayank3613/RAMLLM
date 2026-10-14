@@ -8,6 +8,7 @@ import psutil
 from pydantic import BaseModel, ConfigDict, Field
 
 from ramllm.backends.base import BackendProcess
+from ramllm.core.governor.enforcement import EnforcementManager, get_enforcement_manager
 from ramllm.core.schemas import ExecutionPlan, HardwareProfile
 
 
@@ -26,6 +27,7 @@ class TierMetrics(BaseModel):
     predicted_ram_bytes: int
     predicted_vram_bytes: dict[int, int]
     budget_exceeded: bool
+    enforcement_applied: bool = False
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -38,12 +40,17 @@ class MemoryGovernor:
         hw: HardwareProfile,
         sample_interval_s: float = 0.25,
         tolerance: float = 0.15,
+        enforce: bool = True,
+        enforcement_manager: EnforcementManager | None = None,
     ):
         self.process_handle = process_handle
         self.plan: ExecutionPlan = process_handle.plan
         self.hw = hw
         self.sample_interval_s = sample_interval_s
         self.tolerance = tolerance
+        self.enforce = enforce
+        self.enforcement_manager = enforcement_manager or get_enforcement_manager()
+        self.enforcement_applied = False
 
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -65,18 +72,27 @@ class MemoryGovernor:
             pass
 
     def start(self) -> None:
-        """Start the background monitoring thread."""
+        """Start the background monitoring thread and apply OS enforcement if enabled."""
         if self._thread and self._thread.is_alive():
             return
+
+        if self.enforce and self.process_handle.pid > 0:
+            limit = self.plan.memory.ram_peak_bytes
+            self.enforcement_applied = self.enforcement_manager.apply_limit(
+                self.process_handle.pid, limit
+            )
+
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
-        """Stop the background monitoring thread."""
+        """Stop the background monitoring thread and cleanup OS limits."""
         self._stop_event.set()
         if self._thread:
             self._thread.join(timeout=2.0)
+        if self.enforce and self.process_handle.pid > 0:
+            self.enforcement_manager.cleanup(self.process_handle.pid)
 
     def _sample_metrics(self) -> TierMetrics:
         now = time.time()
@@ -151,6 +167,7 @@ class MemoryGovernor:
             predicted_ram_bytes=predicted_ram,
             predicted_vram_bytes=self.plan.memory.vram_peak_bytes,
             budget_exceeded=budget_exceeded,
+            enforcement_applied=self.enforcement_applied,
             warnings=warnings,
         )
 
