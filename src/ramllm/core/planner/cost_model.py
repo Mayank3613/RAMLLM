@@ -15,11 +15,12 @@ def estimate_speed(
     kv_read_bytes_cpu: int,
     active_params: int,
     batch_size: int = 1,
+    calibration_factor: float = 1.0,
 ) -> SpeedEstimate:
     """Calculate decode and prefill speed ranges based on tier bandwidths and working set.
 
     Accounts for realistic memory bus efficiencies (low vs high ranges).
-    Identifies the primary execution bottleneck.
+    Applies empirical calibration factor if prior benchmark runs are recorded.
     """
     # 1. Bandwidths
     # VRAM bandwidth: from GPU or fallback to 300 GB/s
@@ -54,7 +55,7 @@ def estimate_speed(
     t_overhead = 0.001  # 1ms kernel launch / sampling overhead
 
     t_token_pess = t_cpu_pess + t_disk_pess + t_gpu_pess + t_xfer_pess + t_overhead
-    decode_low = max(0.01, 1.0 / t_token_pess)
+    decode_low = max(0.01, (1.0 / t_token_pess) * calibration_factor)
 
     # High estimate (optimistic speed = optimistic time)
     t_gpu_opt = (
@@ -65,7 +66,7 @@ def estimate_speed(
     t_xfer_opt = bytes_xfer_h2d / (bw_pcie * eff_pcie_high) if bytes_xfer_h2d > 0 else 0.0
 
     t_token_opt = t_cpu_opt + t_disk_opt + max(t_gpu_opt, t_xfer_opt) + (t_overhead * 0.5)
-    decode_high = max(decode_low, 1.0 / t_token_opt)
+    decode_high = max(decode_low, (1.0 / t_token_opt) * calibration_factor)
 
     # 3. Bottleneck Identification
     times = {

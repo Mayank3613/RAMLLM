@@ -7,18 +7,23 @@ from typing import Annotated, Literal
 
 import httpx
 import typer
+import uvicorn
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from ramllm.api.server import create_app
 from ramllm.backends import LlamaCppAdapter
 from ramllm.backends.llamacpp.install import detect_llamacpp
 from ramllm.core.analyzer.gguf import analyze_gguf
+from ramllm.core.governor.monitor import MemoryGovernor
 from ramllm.core.planner import create_execution_plans
 from ramllm.core.profiler import load_synthetic_profile, probe_hardware
 from ramllm.core.schemas import UserRequest
 from ramllm.registry.catalog import add_model, list_models, scan_directory
+from ramllm.telemetry.bench import run_benchmark
+from ramllm.telemetry.calibration import get_calibration_factor
 from ramllm.util.parsing import parse_bytes, parse_context
 
 app = typer.Typer(
@@ -302,6 +307,7 @@ def run(
         str | None, typer.Option("--prompt", "-p", help="Single prompt generation")
     ] = None,
     port: Annotated[int, typer.Option("--port", help="Port for llama-server")] = 8080,
+    live: Annotated[bool, typer.Option("--live", help="Monitor memory live with governor")] = False,
 ) -> None:
     """Run model with budget enforcement, buffer validation, and interactive chat."""
     if not model.exists():
@@ -354,6 +360,11 @@ def run(
             console.print(f"[red]Launch failed: {e}[/red]")
             raise typer.Exit(code=1) from e
 
+    governor: MemoryGovernor | None = None
+    if live:
+        governor = MemoryGovernor(proc, hw)
+        governor.start()
+
     try:
         # Buffer sizes comparison table
         mem_report = proc.initial_memory_report
@@ -370,6 +381,12 @@ def run(
         if mem_report.kv_buffer_bytes:
             console.print(
                 f"  • Logged KV Cache Buffer: {mem_report.kv_buffer_bytes / (1024**2):.1f} MB"
+            )
+
+        if governor:
+            metrics = governor.get_latest_metrics()
+            console.print(
+                f"  • Active Governor Sampling: Available RAM = {metrics.ram_available_bytes / (1024**2):.1f} MB"
             )
 
         # Execute prompt if provided
@@ -390,8 +407,88 @@ def run(
             console.print(f"[red]Error from backend API: {res.text}[/red]")
 
     finally:
+        if governor:
+            governor.stop()
         console.print("[dim]Stopping backend engine...[/dim]")
         adapter.stop(proc)
+
+
+@app.command()
+def bench(
+    model: Annotated[Path, typer.Argument(help="Path to GGUF model")],
+    plan_id: Annotated[
+        str | None, typer.Option("--plan-id", help="Benchmark specific plan")
+    ] = None,
+    port: Annotated[int, typer.Option("--port", help="Port for llama-server")] = 8085,
+) -> None:
+    """Run empirical benchmark on model and update calibration factor."""
+    if not model.exists():
+        console.print(f"[red]Model file not found: {model}[/red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold blue]Benchmarking {model.name}...[/bold blue]")
+    with console.status("[bold blue]Running standard prompt suite and sampling metrics..."):
+        try:
+            record = run_benchmark(model_path=model, plan_id=plan_id, port=port)
+        except Exception as e:
+            console.print(f"[red]Benchmark failed: {e}[/red]")
+            raise typer.Exit(code=1) from e
+
+    table = Table(title="Benchmark Results", box=box.ROUNDED)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Predicted", style="yellow")
+    table.add_column("Measured", style="green")
+
+    table.add_row(
+        "Decode Speed",
+        f"~{record.predicted_decode_low:.1f}–{record.predicted_decode_high:.1f} tok/s",
+        f"{record.measured_decode_tok_s:.1f} tok/s",
+    )
+    table.add_row(
+        "Prefill Speed",
+        f"~{record.predicted_prefill_low:.1f}–{record.predicted_prefill_high:.1f} tok/s",
+        f"{record.measured_prefill_tok_s:.1f} tok/s",
+    )
+    table.add_row("Time to First Token (TTFT)", "-", f"{record.ttft_s:.3f} s")
+    table.add_row("Peak RAM RSS", "-", f"{record.peak_ram_rss_bytes / (1024**2):.1f} MB")
+
+    console.print(table)
+    new_factor = get_calibration_factor(str(model.resolve()))
+    console.print(
+        f"[dim]Saved to bench.jsonl. Active machine calibration factor: {new_factor:.2f}x[/dim]"
+    )
+
+
+@app.command()
+def serve(
+    model: Annotated[Path, typer.Argument(help="Path to GGUF model")],
+    vram: Annotated[str | None, typer.Option("--vram", help="VRAM budget (e.g. 6GB)")] = None,
+    ram: Annotated[str | None, typer.Option("--ram", help="RAM budget (e.g. 12GB)")] = None,
+    context: Annotated[str, typer.Option("--context", help="Target context window")] = "4096",
+    port: Annotated[int, typer.Option("--port", help="Port to listen")] = 8080,
+    host: Annotated[str, typer.Option("--host", help="Host interface to bind")] = "127.0.0.1",
+) -> None:
+    """Start OpenAI-compatible API server with active memory governor."""
+    if not model.exists():
+        console.print(f"[red]Model file not found: {model}[/red]")
+        raise typer.Exit(code=1)
+
+    vram_bytes = parse_bytes(vram)
+    ram_bytes = parse_bytes(ram)
+    ctx_len = parse_context(context)
+
+    vram_dict = {0: vram_bytes} if vram_bytes is not None else None
+    app_instance = create_app(
+        model_path=str(model.resolve()),
+        vram_budget_bytes=vram_dict,
+        ram_budget_bytes=ram_bytes,
+        context=ctx_len,
+    )
+
+    console.print(f"[bold green]Starting RAMLLM API server on http://{host}:{port}...[/bold green]")
+    console.print(f"OpenAI endpoint: http://{host}:{port}/v1/chat/completions")
+    console.print(f"Metrics endpoint: http://{host}:{port}/ramllm/metrics")
+    uvicorn.run(app_instance, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

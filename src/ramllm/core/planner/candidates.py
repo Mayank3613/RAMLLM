@@ -16,6 +16,7 @@ from ramllm.core.schemas import (
     Placement,
     UserRequest,
 )
+from ramllm.telemetry.calibration import get_calibration_factor
 
 
 def _build_backend_args(
@@ -64,6 +65,7 @@ def generate_candidate_plans(
     compute_buffer_bytes = estimate_compute_buffer_bytes(
         target_ctx, batch_size=512, hidden_size=model.hidden_size
     )
+    calib_factor = get_calibration_factor(model.path)
 
     # Allowed KV types
     kv_types: list[Literal["f16", "q8_0", "q4_0"]] = ["f16"]
@@ -120,6 +122,7 @@ def generate_candidate_plans(
                     kv_read_bytes_gpu=kv_footprint,
                     kv_read_bytes_cpu=0,
                     active_params=model.n_params,
+                    calibration_factor=calib_factor,
                 )
                 verdict = classify_verdict(
                     speed.decode_tok_s_low, speed.decode_tok_s_high, False, True
@@ -229,6 +232,7 @@ def generate_candidate_plans(
                     kv_read_bytes_gpu=kv_footprint if kv_loc == "gpu" else 0,
                     kv_read_bytes_cpu=kv_footprint if kv_loc == "cpu" else 0,
                     active_params=model.n_params,
+                    calibration_factor=calib_factor,
                 )
                 verdict = classify_verdict(
                     speed.decode_tok_s_low, speed.decode_tok_s_high, has_disk_spill, True
@@ -309,6 +313,7 @@ def generate_candidate_plans(
                     kv_read_bytes_gpu=kv_footprint,
                     kv_read_bytes_cpu=0,
                     active_params=model.n_params,
+                    calibration_factor=calib_factor,
                 )
                 verdict = classify_verdict(
                     speed.decode_tok_s_low, speed.decode_tok_s_high, False, True
@@ -392,6 +397,7 @@ def generate_candidate_plans(
             kv_read_bytes_gpu=0,
             kv_read_bytes_cpu=kv_footprint,
             active_params=model.n_params,
+            calibration_factor=calib_factor,
         )
         verdict = classify_verdict(
             speed.decode_tok_s_low, speed.decode_tok_s_high, has_disk, fits_ram or has_disk

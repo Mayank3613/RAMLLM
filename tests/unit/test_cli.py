@@ -52,3 +52,15 @@ def test_cli_plan_with_fixtures(tmp_path: Path) -> None:
 def test_cli_models_list() -> None:
     result = runner.invoke(app, ["models", "list"])
     assert result.exit_code == 0
+
+
+def test_cli_bench_help() -> None:
+    result = runner.invoke(app, ["bench", "--help"])
+    assert result.exit_code == 0
+    assert "Run empirical benchmark" in result.stdout
+
+
+def test_cli_serve_help() -> None:
+    result = runner.invoke(app, ["serve", "--help"])
+    assert result.exit_code == 0
+    assert "Start OpenAI-compatible API server" in result.stdout
