@@ -44,9 +44,32 @@ def build_llamacpp_args(
     if plan.kv.location == "cpu":
         args.append("--no-kv-offload")
 
-    # MoE CPU offload
+    # Multi-GPU split
+    if len(plan.placement.gpu_layers) > 1:
+        total_offloaded = sum(len(layers) for layers in plan.placement.gpu_layers.values())
+        if total_offloaded > 0:
+            gpu_indices = sorted(plan.placement.gpu_layers.keys())
+            max_gpu_idx = max(gpu_indices)
+            fractions = [
+                f"{len(plan.placement.gpu_layers.get(idx, [])) / total_offloaded:.2f}"
+                for idx in range(max_gpu_idx + 1)
+            ]
+            main_gpu = gpu_indices[0]
+            for i, a in enumerate(plan.backend_args):
+                if a in ("-mg", "--main-gpu") and i + 1 < len(plan.backend_args):
+                    main_gpu = int(plan.backend_args[i + 1])
+                    break
+            args.extend(["-sm", "layer", "-ts", ",".join(fractions), "-mg", str(main_gpu)])
+
+    # MoE CPU offload flags
     if plan.placement.expert_placement == "cpu":
         args.append("-cmoe")
+
+    # Partial MoE CPU offload (-ncmoe)
+    for i, a in enumerate(plan.backend_args):
+        if a in ("-ncmoe", "--n-cpu-moe") and i + 1 < len(plan.backend_args):
+            args.extend(["-ncmoe", plan.backend_args[i + 1]])
+            break
 
     # Disk streaming / no-mmap
     if plan.placement.disk_streamed_layers:

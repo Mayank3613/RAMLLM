@@ -16,6 +16,7 @@ def estimate_speed(
     active_params: int,
     batch_size: int = 1,
     calibration_factor: float = 1.0,
+    vram_bandwidth_override: float | None = None,
 ) -> SpeedEstimate:
     """Calculate decode and prefill speed ranges based on tier bandwidths and working set.
 
@@ -23,12 +24,15 @@ def estimate_speed(
     Applies empirical calibration factor if prior benchmark runs are recorded.
     """
     # 1. Bandwidths
-    # VRAM bandwidth: from GPU or fallback to 300 GB/s
-    bw_vram = 300.0 * 1024**3
-    if hw.gpus:
+    # VRAM bandwidth: from override, GPU, or fallback to 300 GB/s
+    if vram_bandwidth_override is not None:
+        bw_vram = vram_bandwidth_override
+    elif hw.gpus:
         bw_vram = hw.gpus[0].vram_bandwidth_bytes_s or (
             hw.ram_bandwidth_bytes_s if hw.gpus[0].unified_memory else 300.0 * 1024**3
         )
+    else:
+        bw_vram = 300.0 * 1024**3
 
     bw_ram = max(hw.ram_bandwidth_bytes_s, 10.0 * 1024**3)
     bw_disk = max(hw.disk_read_bandwidth_bytes_s, 50.0 * 1024**2)

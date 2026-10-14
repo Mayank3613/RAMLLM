@@ -25,6 +25,7 @@ class ReplanRequest(BaseModel):
     vram_budget_bytes: dict[int, int] | None = None
     ram_budget_bytes: int | None = None
     context: int | None = None
+    gpu_indices: list[int] | None = None
 
 
 class ServerState:
@@ -133,12 +134,17 @@ async def replan(req: ReplanRequest) -> ExecutionPlan:
             else state.user_request.ram_budget_bytes
         )
 
+        gpu_idxs = (
+            req.gpu_indices if req.gpu_indices is not None else state.user_request.gpu_indices
+        )
+
         state.user_request = UserRequest(
             model=state.model_path,
             vram_budget_bytes=vram_dict,
             ram_budget_bytes=ram_bytes,
             min_context=ctx,
             target_context=ctx,
+            gpu_indices=gpu_idxs,
         )
 
         launch_active_session()
@@ -225,6 +231,7 @@ def create_app(
     vram_budget_bytes: dict[int, int] | None = None,
     ram_budget_bytes: int | None = None,
     context: int = 4096,
+    gpu_indices: list[int] | None = None,
     internal_port: int = 18080,
 ) -> FastAPI:
     """Configure server state and return FastAPI application instance."""
@@ -238,5 +245,6 @@ def create_app(
         ram_budget_bytes=ram_budget_bytes,
         min_context=context,
         target_context=context,
+        gpu_indices=gpu_indices,
     )
     return api_app

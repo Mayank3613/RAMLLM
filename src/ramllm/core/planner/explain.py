@@ -19,7 +19,17 @@ def explain_plan(
     cpu_layer_count = len(placement.cpu_layers)
     disk_layer_count = len(placement.disk_streamed_layers)
 
-    if gpu_layer_count == total_layers:
+    if len(placement.gpu_layers) > 1:
+        gpu_vram_gb = sum(memory.vram_peak_bytes.values()) / (1024**3)
+        splits = [
+            f"GPU{idx}: {len(layer_list)} layers ({memory.vram_peak_bytes.get(idx, 0) / (1024**3):.1f} GB)"
+            for idx, layer_list in sorted(placement.gpu_layers.items())
+        ]
+        lines.append(
+            f"Multi-GPU Pipeline Split: {gpu_layer_count}/{total_layers} layers across {len(placement.gpu_layers)} GPUs "
+            f"({gpu_vram_gb:.1f} GB total VRAM) — [{', '.join(splits)}]; {cpu_layer_count} layers on CPU."
+        )
+    elif gpu_layer_count == total_layers:
         gpu_vram_gb = sum(memory.vram_peak_bytes.values()) / (1024**3)
         lines.append(
             f"Full GPU Residency: All {total_layers} layers placed in VRAM ({gpu_vram_gb:.1f} GB peak)."

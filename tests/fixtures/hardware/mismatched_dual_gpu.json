@@ -1,0 +1,44 @@
+{
+  "os": "linux",
+  "cpu_name": "AMD Ryzen 9 7950X",
+  "cpu_cores_physical": 16,
+  "cpu_cores_logical": 32,
+  "cpu_features": ["avx", "avx2", "fma"],
+  "ram_total_bytes": 68719476736,
+  "ram_available_bytes": 55000000000,
+  "swap_total_bytes": 34359738368,
+  "ram_bandwidth_bytes_s": 65000000000.0,
+  "disk_read_bandwidth_bytes_s": 5000000000.0,
+  "disk_kind": "nvme",
+  "gpus": [
+    {
+      "index": 0,
+      "vendor": "nvidia",
+      "name": "NVIDIA GeForce RTX 4090",
+      "api_support": ["cuda"],
+      "vram_total_bytes": 25769803776,
+      "vram_free_bytes": 24000000000,
+      "compute_capability": "8.9",
+      "unified_memory": false,
+      "pcie_gen": 4,
+      "pcie_lanes": 16,
+      "h2d_bandwidth_bytes_s": 25000000000.0,
+      "vram_bandwidth_bytes_s": 1008000000000.0
+    },
+    {
+      "index": 1,
+      "vendor": "nvidia",
+      "name": "NVIDIA GeForce RTX 3060",
+      "api_support": ["cuda"],
+      "vram_total_bytes": 12884901888,
+      "vram_free_bytes": 11500000000,
+      "compute_capability": "8.6",
+      "unified_memory": false,
+      "pcie_gen": 3,
+      "pcie_lanes": 8,
+      "h2d_bandwidth_bytes_s": 7500000000.0,
+      "vram_bandwidth_bytes_s": 360000000000.0
+    }
+  ],
+  "measured_at": "2026-10-14T10:00:00"
+}

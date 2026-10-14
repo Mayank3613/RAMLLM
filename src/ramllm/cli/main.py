@@ -37,6 +37,35 @@ app.add_typer(models_app, name="models")
 console = Console()
 
 
+def _parse_gpu_args(
+    gpus_str: str | None, vram_str: str | None
+) -> tuple[list[int] | None, dict[int, int] | None]:
+    """Parse comma-separated GPU indices and VRAM budgets."""
+    gpu_indices: list[int] | None = None
+    if gpus_str:
+        gpu_indices = [int(x.strip()) for x in gpus_str.split(",") if x.strip()]
+
+    vram_dict: dict[int, int] | None = None
+    if vram_str:
+        if "," in vram_str:
+            parts = [parse_bytes(p.strip()) for p in vram_str.split(",")]
+            indices = gpu_indices if gpu_indices else list(range(len(parts)))
+            vram_dict = {
+                idx: parts[i]
+                for i, idx in enumerate(indices)
+                if i < len(parts) and parts[i] is not None
+            }
+        else:
+            single_val = parse_bytes(vram_str)
+            if single_val is not None:
+                if gpu_indices and len(gpu_indices) > 1:
+                    vram_dict = dict.fromkeys(gpu_indices, single_val)
+                else:
+                    target_idx = gpu_indices[0] if (gpu_indices and len(gpu_indices) == 1) else 0
+                    vram_dict = {target_idx: single_val}
+    return gpu_indices, vram_dict
+
+
 @app.command()
 def profile(
     refresh: Annotated[bool, typer.Option("--refresh", help="Re-run bandwidth benchmarks")] = False,
@@ -191,8 +220,13 @@ def models_scan(
 @app.command()
 def plan(
     model: Annotated[Path, typer.Argument(help="Path to GGUF model")],
-    vram: Annotated[str | None, typer.Option("--vram", help="VRAM budget (e.g. 6GB)")] = None,
+    vram: Annotated[
+        str | None, typer.Option("--vram", help="VRAM budget (e.g. 6GB or 8GB,6GB)")
+    ] = None,
     ram: Annotated[str | None, typer.Option("--ram", help="RAM budget (e.g. 12GB)")] = None,
+    gpus: Annotated[
+        str | None, typer.Option("--gpus", help="Comma-separated GPU indices to use (e.g. 0,1)")
+    ] = None,
     context: Annotated[
         str, typer.Option("--context", help="Target context window (e.g. 4096, 8k)")
     ] = "4096",
@@ -210,7 +244,7 @@ def plan(
     ] = None,
 ) -> None:
     """Plan model execution strategy given hardware constraints and memory budgets."""
-    vram_bytes = parse_bytes(vram)
+    gpu_indices, vram_dict = _parse_gpu_args(gpus, vram)
     ram_bytes = parse_bytes(ram)
     ctx_len = parse_context(context)
 
@@ -228,7 +262,6 @@ def plan(
     model_info = analyze_gguf(model)
 
     # 3. Formulate UserRequest
-    vram_dict = {0: vram_bytes} if vram_bytes is not None else None
     req = UserRequest(
         model=str(model.resolve()),
         vram_budget_bytes=vram_dict,
@@ -237,6 +270,7 @@ def plan(
         target_context=ctx_len,
         preference=prefer,
         use_gpu=not cpu_only,
+        gpu_indices=gpu_indices,
         allow_kv_quant=not no_kv_quant,
     )
 
@@ -302,6 +336,9 @@ def run(
     model: Annotated[Path, typer.Argument(help="Path to GGUF model")],
     vram: Annotated[str | None, typer.Option("--vram", help="VRAM budget (e.g. 6GB)")] = None,
     ram: Annotated[str | None, typer.Option("--ram", help="RAM budget (e.g. 12GB)")] = None,
+    gpus: Annotated[
+        str | None, typer.Option("--gpus", help="Comma-separated GPU indices to use (e.g. 0,1)")
+    ] = None,
     context: Annotated[str, typer.Option("--context", help="Target context window")] = "4096",
     prompt: Annotated[
         str | None, typer.Option("--prompt", "-p", help="Single prompt generation")
@@ -314,7 +351,7 @@ def run(
         console.print(f"[red]Model file not found: {model}[/red]")
         raise typer.Exit(code=1)
 
-    vram_bytes = parse_bytes(vram)
+    gpu_indices, vram_dict = _parse_gpu_args(gpus, vram)
     ram_bytes = parse_bytes(ram)
     ctx_len = parse_context(context)
 
@@ -323,10 +360,11 @@ def run(
 
     req = UserRequest(
         model=str(model.resolve()),
-        vram_budget_bytes={0: vram_bytes} if vram_bytes is not None else None,
+        vram_budget_bytes=vram_dict,
         ram_budget_bytes=ram_bytes,
         min_context=ctx_len,
         target_context=ctx_len,
+        gpu_indices=gpu_indices,
     )
 
     plans = create_execution_plans(model_info, hw, req)
@@ -464,6 +502,9 @@ def serve(
     model: Annotated[Path, typer.Argument(help="Path to GGUF model")],
     vram: Annotated[str | None, typer.Option("--vram", help="VRAM budget (e.g. 6GB)")] = None,
     ram: Annotated[str | None, typer.Option("--ram", help="RAM budget (e.g. 12GB)")] = None,
+    gpus: Annotated[
+        str | None, typer.Option("--gpus", help="Comma-separated GPU indices to use (e.g. 0,1)")
+    ] = None,
     context: Annotated[str, typer.Option("--context", help="Target context window")] = "4096",
     port: Annotated[int, typer.Option("--port", help="Port to listen")] = 8080,
     host: Annotated[str, typer.Option("--host", help="Host interface to bind")] = "127.0.0.1",
@@ -473,16 +514,16 @@ def serve(
         console.print(f"[red]Model file not found: {model}[/red]")
         raise typer.Exit(code=1)
 
-    vram_bytes = parse_bytes(vram)
+    gpu_indices, vram_dict = _parse_gpu_args(gpus, vram)
     ram_bytes = parse_bytes(ram)
     ctx_len = parse_context(context)
 
-    vram_dict = {0: vram_bytes} if vram_bytes is not None else None
     app_instance = create_app(
         model_path=str(model.resolve()),
         vram_budget_bytes=vram_dict,
         ram_budget_bytes=ram_bytes,
         context=ctx_len,
+        gpu_indices=gpu_indices,
     )
 
     console.print(f"[bold green]Starting RAMLLM API server on http://{host}:{port}...[/bold green]")
