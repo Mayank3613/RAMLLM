@@ -30,9 +30,12 @@ def _build_backend_args(
 ) -> list[str]:
     """Generate concrete llama-server / llama-cli CLI arguments."""
     args = [
-        "-m", model_path,
-        "-ngl", str(ngl),
-        "-c", str(ctx),
+        "-m",
+        model_path,
+        "-ngl",
+        str(ngl),
+        "-c",
+        str(ctx),
     ]
     if type_k != "f16":
         args.extend(["-ctk", type_k])
@@ -177,7 +180,11 @@ def generate_candidate_plans(
 
                 cpu_layers = [i for i in range(total_layers) if i not in gpu_layers]
                 cpu_weight_bytes = sum(model.per_layer_bytes[i] for i in cpu_layers)
-                ram_needed = cpu_weight_bytes + (kv_footprint if kv_loc == "cpu" else 0) + int(500 * 1024 * 1024)
+                ram_needed = (
+                    cpu_weight_bytes
+                    + (kv_footprint if kv_loc == "cpu" else 0)
+                    + int(500 * 1024 * 1024)
+                )
 
                 fits_budget = ram_needed <= usable_ram
                 has_disk_spill = False
@@ -202,7 +209,14 @@ def generate_candidate_plans(
                     context=target_ctx,
                 )
                 mem = MemoryEstimate(
-                    vram_peak_bytes={primary_gpu_idx: int(accumulated + model.non_layer_bytes + (kv_footprint if kv_loc == "gpu" else 0) + compute_buffer_bytes)},
+                    vram_peak_bytes={
+                        primary_gpu_idx: int(
+                            accumulated
+                            + model.non_layer_bytes
+                            + (kv_footprint if kv_loc == "gpu" else 0)
+                            + compute_buffer_bytes
+                        )
+                    },
                     ram_peak_bytes=ram_needed if not has_disk_spill else int(1.5 * 1024**3),
                     disk_read_bytes_per_token=cpu_weight_bytes if has_disk_spill else 0,
                 )

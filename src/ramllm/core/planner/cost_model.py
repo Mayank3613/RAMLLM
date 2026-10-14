@@ -45,7 +45,9 @@ def estimate_speed(
     eff_pcie_low, eff_pcie_high = 0.70, 0.90
 
     # Low estimate (conservative speed = pessimistic time)
-    t_gpu_pess = (bytes_gpu + kv_read_bytes_gpu) / (bw_vram * eff_vram_low) if bytes_gpu > 0 else 0.0
+    t_gpu_pess = (
+        (bytes_gpu + kv_read_bytes_gpu) / (bw_vram * eff_vram_low) if bytes_gpu > 0 else 0.0
+    )
     t_cpu_pess = (bytes_cpu + kv_read_bytes_cpu) / (bw_ram * eff_ram_low) if bytes_cpu > 0 else 0.0
     t_disk_pess = bytes_disk / (bw_disk * eff_disk_low) if bytes_disk > 0 else 0.0
     t_xfer_pess = bytes_xfer_h2d / (bw_pcie * eff_pcie_low) if bytes_xfer_h2d > 0 else 0.0
@@ -55,7 +57,9 @@ def estimate_speed(
     decode_low = max(0.01, 1.0 / t_token_pess)
 
     # High estimate (optimistic speed = optimistic time)
-    t_gpu_opt = (bytes_gpu + kv_read_bytes_gpu) / (bw_vram * eff_vram_high) if bytes_gpu > 0 else 0.0
+    t_gpu_opt = (
+        (bytes_gpu + kv_read_bytes_gpu) / (bw_vram * eff_vram_high) if bytes_gpu > 0 else 0.0
+    )
     t_cpu_opt = (bytes_cpu + kv_read_bytes_cpu) / (bw_ram * eff_ram_high) if bytes_cpu > 0 else 0.0
     t_disk_opt = bytes_disk / (bw_disk * eff_disk_high) if bytes_disk > 0 else 0.0
     t_xfer_opt = bytes_xfer_h2d / (bw_pcie * eff_pcie_high) if bytes_xfer_h2d > 0 else 0.0

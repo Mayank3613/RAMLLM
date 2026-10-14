@@ -48,9 +48,7 @@ def explain_plan(
 
     # 3. KV cache explanation
     kv_loc = "GPU VRAM" if kv.location == "gpu" else "Host RAM"
-    lines.append(
-        f"KV Cache: {kv.context} tokens ({kv.type_k}/{kv.type_v}) placed in {kv_loc}."
-    )
+    lines.append(f"KV Cache: {kv.context} tokens ({kv.type_k}/{kv.type_v}) placed in {kv_loc}.")
 
     # 4. Bottleneck explanation
     bottleneck_descriptions = {
