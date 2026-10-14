@@ -128,7 +128,14 @@ def resolve_model_reference(
     candidate_path = Path(sref).expanduser()
     if candidate_path.exists() and candidate_path.is_file():
         return candidate_path.resolve()
-    if candidate_path.is_absolute() or sref.startswith(("/", "./", "../", "~")):
+    if (
+        candidate_path.is_absolute()
+        or bool(candidate_path.root)
+        or bool(candidate_path.drive)
+        or sref.startswith(("/", "\\", "./", ".\\", "../", "..\\", "~"))
+        or ("/" in sref)
+        or ("\\" in sref)
+    ):
         raise FileNotFoundError(f"Model file not found: {sref}")
 
     # 2. Local catalog match

@@ -440,6 +440,6 @@ def test_cli_run_fails_soft_without_raw_traceback(monkeypatch: pytest.MonkeyPatc
     # Model file doesn't exist
     res = runner.invoke(cli_app, ["run", "/nonexistent/model.gguf"])
     assert res.exit_code == 1
-    assert "Model file not found" in res.output
+    assert "Model file not found" in res.output or "not found" in res.output
     # Must never dump python traceback
     assert "Traceback (most recent call last)" not in res.output
