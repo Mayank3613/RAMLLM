@@ -64,3 +64,110 @@ def test_cli_serve_help() -> None:
     result = runner.invoke(app, ["serve", "--help"])
     assert result.exit_code == 0
     assert "Start OpenAI-compatible API server" in result.stdout
+
+
+def test_cli_plan_no_budgets_3_profiles(tmp_path: Path) -> None:
+    model_path = tmp_path / "test_dense.gguf"
+    create_tiny_dense_gguf(model_path)
+
+    profiles = [
+        "tests/fixtures/hardware/laptop_8gb_no_gpu.json",
+        "tests/fixtures/hardware/laptop_16gb_gpu_6gb.json",
+        "tests/fixtures/hardware/apple_m_16gb_unified.json",
+    ]
+
+    for p in profiles:
+        result = runner.invoke(
+            app,
+            [
+                "plan",
+                str(model_path),
+                "--hw-json",
+                p,
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Plan Summary" in result.stdout
+        assert "Speed:" in result.stdout
+        assert "Memory:" in result.stdout
+        assert "Where it runs:" in result.stdout
+        assert "Using up to" in result.stdout
+
+
+def test_cli_run_dry_run_no_budgets(tmp_path: Path) -> None:
+    model_path = tmp_path / "test_dense.gguf"
+    create_tiny_dense_gguf(model_path)
+    hw_path = "tests/fixtures/hardware/laptop_8gb_no_gpu.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(model_path),
+            "--hw-json",
+            hw_path,
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "[DRY-RUN]" in result.stdout
+    assert "Plan Summary" in result.stdout
+
+
+def test_cli_config_commands() -> None:
+    # config list
+    res_list = runner.invoke(app, ["config", "list"])
+    assert res_list.exit_code == 0
+    assert "Configuration" in res_list.stdout
+
+    # config path
+    res_path = runner.invoke(app, ["config", "path"])
+    assert res_path.exit_code == 0
+    assert "config.toml" in res_path.stdout
+
+    # config set and get
+    res_set = runner.invoke(app, ["config", "set", "mode", "fast"])
+    assert res_set.exit_code == 0
+
+    res_get = runner.invoke(app, ["config", "get", "mode"])
+    assert res_get.exit_code == 0
+    assert "fast" in res_get.stdout
+
+    # reset
+    res_reset = runner.invoke(app, ["config", "reset", "mode"])
+    assert res_reset.exit_code == 0
+
+
+def test_cli_models_search_and_info() -> None:
+    # models search
+    res_search = runner.invoke(app, ["models", "search", "qwen"])
+    assert res_search.exit_code == 0
+    assert "Curated Model Catalog" in res_search.stdout
+    assert "qwen2.5-0.5b" in res_search.stdout
+
+    # models search with --fits
+    res_fits = runner.invoke(app, ["models", "search", "--fits"])
+    assert res_fits.exit_code == 0
+    assert "Curated Model Catalog" in res_fits.stdout
+
+    # models info
+    res_info = runner.invoke(app, ["models", "info", "qwen2.5-0.5b"])
+    assert res_info.exit_code == 0
+    assert "Qwen 2.5 0.5B Instruct" in res_info.stdout
+    assert "Available Quantizations" in res_info.stdout
+    assert "Q4_K_M" in res_info.stdout
+
+
+def test_cli_models_du_and_clean() -> None:
+    res_du = runner.invoke(app, ["models", "du"])
+    assert res_du.exit_code == 0
+    assert "Model Disk Usage" in res_du.stdout
+
+    res_clean = runner.invoke(app, ["models", "clean", "--yes"])
+    assert res_clean.exit_code == 0
+
+
+def test_cli_models_list_json() -> None:
+    res = runner.invoke(app, ["models", "list", "--json"])
+    assert res.exit_code == 0
+    assert res.stdout.strip().startswith("[")

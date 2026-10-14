@@ -1,0 +1,27 @@
+name: Curated Model Index Verification
+
+on:
+  schedule:
+    # Run every Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify Hugging Face Links & Checksums
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: uv sync --all-extras
+
+    - name: Run Model Index Verification
+      run: uv run python scripts/verify_index.py

@@ -52,9 +52,8 @@ def test_recommend_returns_only_feasible_models(tmp_path: Path) -> None:
     req = UserRequest(model="", allow_streaming=False)
 
     # Patch analyze_gguf for huge model
+    from ramllm.core.analyzer.gguf import analyze_gguf as orig_analyze
     from ramllm.core.schemas import ModelInfo
-
-    orig_analyze = __import__("ramllm.core.analyzer.gguf", fromlist=["analyze_gguf"]).analyze_gguf
 
     def mock_analyze(p: Path) -> ModelInfo:
         if "huge_model" in str(p):

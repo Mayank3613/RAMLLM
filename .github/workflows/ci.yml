@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
     - uses: actions/checkout@v4
@@ -34,8 +34,16 @@ jobs:
     - name: Run Ruff Format Check
       run: uv run ruff format --check .
 
-    - name: Type Check Core
-      run: uv run mypy src/ramllm/core
+    - name: Type Check Core & CLI
+      run: uv run mypy src tests
+
+    - name: Validate Curated Models Index Schema
+      run: uv run python -c "from ramllm.services.model_service import load_curated_index; idx = load_curated_index(); assert len(idx.models) >= 15, f'Expected >=15 models, got {len(idx.models)}'"
+
+    - name: Verify CLI Documentation Freshness
+      run: |
+        uv run python scripts/generate_cli_docs.py
+        git diff --exit-code docs/cli.md
 
     - name: Run Tests (excluding slow/gpu)
       run: uv run pytest -m "not slow and not gpu" -v

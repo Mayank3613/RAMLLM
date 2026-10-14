@@ -1,0 +1,1098 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-10-14",
+  "models": [
+    {
+      "id": "smollm2-135m",
+      "name": "SmolLM2 135M Instruct",
+      "family": "SmolLM",
+      "params_b": 0.135,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "small",
+        "fast",
+        "testing"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 105454432,
+          "hf_repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
+          "hf_file": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
+          "sha256": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 112103776,
+          "hf_repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
+          "hf_file": "SmolLM2-135M-Instruct-Q5_K_M.gguf",
+          "sha256": "731d0c9cf598dada9712242ceddcca88aa0502fc8f9b8f773917df9f9113463a"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 144811360,
+          "hf_repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
+          "hf_file": "SmolLM2-135M-Instruct-Q8_0.gguf",
+          "sha256": "5a1395716f7913741cc51d98581b9b1228d80987a9f7d3664106742eb06bba83"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 102039904,
+          "hf_repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
+          "hf_file": "SmolLM2-135M-Instruct-Q4_K_S.gguf",
+          "sha256": "a8654d8eb14c45ef3c6170b3f0c6ccd02ba3e1a6b406ca02f4ffadf0b1b222a0"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 91893088,
+          "hf_repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
+          "hf_file": "SmolLM2-135M-Instruct-Q4_0.gguf",
+          "sha256": "bcc3af2849ad6095af57e9b5cd43775256efdc66e306acb529172f92d0c04b03"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 138383200,
+          "hf_repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
+          "hf_file": "SmolLM2-135M-Instruct-Q6_K.gguf",
+          "sha256": "012e83bc3f8ae14bdead7abdd577bdb0b8ad5a3a913ac1a843a6a3a8d7d5d8a5"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 93510496,
+          "hf_repo": "bartowski/SmolLM2-135M-Instruct-GGUF",
+          "hf_file": "SmolLM2-135M-Instruct-Q3_K_M.gguf",
+          "sha256": "0b431be309b25c9496463b3362d89a7156c44cdd899ee64f1390f11a059188ef"
+        }
+      ],
+      "notes": "Minimal test model, instant downloads and minimal RAM consumption.",
+      "recommended_min_memory_gb": 1,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "smollm2-360m",
+      "name": "SmolLM2 360M Instruct",
+      "family": "SmolLM",
+      "params_b": 0.36,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "small",
+        "fast",
+        "chat"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q8_0",
+          "size_bytes": 386404992,
+          "hf_repo": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+          "hf_file": "smollm2-360m-instruct-q8_0.gguf",
+          "sha256": "48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201"
+        }
+      ],
+      "notes": "Lightweight conversational model tailored for resource-constrained devices.",
+      "recommended_min_memory_gb": 2,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "smollm2-1.7b",
+      "name": "SmolLM2 1.7B Instruct",
+      "family": "SmolLM",
+      "params_b": 1.7,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "small",
+        "fast"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 1055609536,
+          "hf_repo": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
+          "hf_file": "smollm2-1.7b-instruct-q4_k_m.gguf",
+          "sha256": "decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33"
+        }
+      ],
+      "notes": "Compact everyday model capable of reasoning and instruction following.",
+      "recommended_min_memory_gb": 4,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "qwen2.5-0.5b",
+      "name": "Qwen 2.5 0.5B Instruct",
+      "family": "Qwen",
+      "params_b": 0.5,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "small",
+        "fast",
+        "multilingual"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 397808192,
+          "hf_repo": "bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+          "sha256": "6eb923e7d26e9cea28811e1a8e852009b21242fb157b26149d3b188f3a8c8653"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 420086336,
+          "hf_repo": "bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-0.5B-Instruct-Q5_K_M.gguf",
+          "sha256": "a0a413dcbb4676f21d4c951b98a393324694edb1a20a4f9547d1de8d2919ff3b"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 531068480,
+          "hf_repo": "bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-0.5B-Instruct-Q8_0.gguf",
+          "sha256": "25130a98aa782284a7dabea0c23245b2fd371ed47244e79d78b8ec23245fdf96"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 385472064,
+          "hf_repo": "bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-0.5B-Instruct-Q4_K_S.gguf",
+          "sha256": "988083e5e5f2b6060d32f349b7e2d9e253f352e9cd3ead40fab6889041654249"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 352972352,
+          "hf_repo": "bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-0.5B-Instruct-Q4_0.gguf",
+          "sha256": "c8cd5f37dd1235fb010c45316d4ff8af875e1a4e0ff368b4bf6cacb9053d4919"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 505736768,
+          "hf_repo": "bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-0.5B-Instruct-Q6_K.gguf",
+          "sha256": "32c14c29a44712c02e29d5c2605593ece92ccb7a4358f56016a42b151434c842"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 355466656,
+          "hf_repo": "bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-0.5B-Instruct-Q3_K_M.gguf",
+          "sha256": "e14591771b0a3070c50ff11ee6055ffbb25f0bf50b6f9474ec4a16ff4ace8df6"
+        }
+      ],
+      "notes": "Ultra-compact multilingual assistant, runs fast on any laptop or phone.",
+      "recommended_min_memory_gb": 2,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "qwen2.5-1.5b",
+      "name": "Qwen 2.5 1.5B Instruct",
+      "family": "Qwen",
+      "params_b": 1.5,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "fast",
+        "multilingual",
+        "coding"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 986048768,
+          "hf_repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+          "sha256": "1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 1125050624,
+          "hf_repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-1.5B-Instruct-Q5_K_M.gguf",
+          "sha256": "cf240adc57e126e86102335f6565fb23e523b28d287c75bdb0759f064e8bb572"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 1646573312,
+          "hf_repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-1.5B-Instruct-Q8_0.gguf",
+          "sha256": "7185d306cf45956c8c017cd0d3b05ecc6bc18b3ea8eb5c240dce40e87563db7f"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 940312832,
+          "hf_repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-1.5B-Instruct-Q4_K_S.gguf",
+          "sha256": "cd382e90a417faa648ea012ebae8b97f94b3836be02947b0522886339ad1e1d7"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 937535744,
+          "hf_repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-1.5B-Instruct-Q4_0.gguf",
+          "sha256": "a5ab77ebbd1d6d70250ff415339935bebac619b7acc508f71545f08231369dc1"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 1272740096,
+          "hf_repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-1.5B-Instruct-Q6_K.gguf",
+          "sha256": "1b01b4ea4ccdd5aa6a5972790002e120a5d500a5175be571114d642a8db4d14e"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 824178784,
+          "hf_repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-1.5B-Instruct-Q3_K_M.gguf",
+          "sha256": "7437ad04011a14fb890074cc783df4c1d537197942337353a824ff7e6115ef9b"
+        }
+      ],
+      "notes": "Fast and versatile small model with strong multilingual skills.",
+      "recommended_min_memory_gb": 4,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "llama-3.2-1b",
+      "name": "Llama 3.2 1B Instruct",
+      "family": "Llama",
+      "params_b": 1.2,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "small",
+        "fast"
+      ],
+      "license": "Llama 3.2 Community",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 807694464,
+          "hf_repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+          "sha256": "6f85a640a97cf2bf5b8e764087b1e83da0fdb51d7c9fab7d0fece9385611df83"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 911503488,
+          "hf_repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-1B-Instruct-Q5_K_M.gguf",
+          "sha256": "4f22f95fb1679ef8e2fd6f1659d23f06cd1dbedb79ff291db7413a7ae509e2a9"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 1321083008,
+          "hf_repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-1B-Instruct-Q8_0.gguf",
+          "sha256": "432f310a77f4650a88d0fd59ecdd7cebed8d684bafea53cbff0473542964f0c3"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 775647360,
+          "hf_repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-1B-Instruct-Q4_K_S.gguf",
+          "sha256": "00f6255d497c05015cf8102ed73b93017a91072c21bfc98fef34b4f3c10850eb"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 773025920,
+          "hf_repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-1B-Instruct-Q4_0.gguf",
+          "sha256": "fa0390e7c043f89ae1847bd6682d748041a99d4ef3de0e0b27d33b6af97a8be8"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 1021800576,
+          "hf_repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-1B-Instruct-Q6_K.gguf",
+          "sha256": "0f4c510daf16e0d1b3bc94931fd9296c28936bebdda2593687d4eb70c5b70628"
+        }
+      ],
+      "notes": "Meta's efficient edge model for quick queries and summarize tasks.",
+      "recommended_min_memory_gb": 4,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "llama-3.2-3b",
+      "name": "Llama 3.2 3B Instruct",
+      "family": "Llama",
+      "params_b": 3.2,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "balanced",
+        "general"
+      ],
+      "license": "Llama 3.2 Community",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 2019377696,
+          "hf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+          "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 2322154016,
+          "hf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-3B-Instruct-Q5_K_M.gguf",
+          "sha256": "0b94ccd04d908304cec5246a3d942b64417a423bc5c6d47c73bc557e590b5194"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 3421899296,
+          "hf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-3B-Instruct-Q8_0.gguf",
+          "sha256": "b5607b5090a8280063fff2d706bb3408ca6542341b06aab39c3eca0a28575921"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 1928200736,
+          "hf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-3B-Instruct-Q4_K_S.gguf",
+          "sha256": "bfb5db97e77e3927e18d971806e36d1886271d6c62e160d5bc78bcdbefb7197c"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 1921909280,
+          "hf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-3B-Instruct-Q4_0.gguf",
+          "sha256": "4d491003bf6b470e4d04233824c5c939b76d6c81974ba17a3ff207343e1d8e85"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 2643853856,
+          "hf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+          "hf_file": "Llama-3.2-3B-Instruct-Q6_K.gguf",
+          "sha256": "1771887c15fc3d327cfee6fd593553b2126e88834bf48eae50e709d3f70dd998"
+        }
+      ],
+      "notes": "High quality-to-size ratio from Meta, ideal for laptops without discrete GPUs.",
+      "recommended_min_memory_gb": 6,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "gemma-2-2b",
+      "name": "Gemma 2 2B Instruct",
+      "family": "Gemma",
+      "params_b": 2.6,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "fast",
+        "general"
+      ],
+      "license": "Gemma Terms of Use",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 1708582752,
+          "hf_repo": "bartowski/gemma-2-2b-it-GGUF",
+          "hf_file": "gemma-2-2b-it-Q4_K_M.gguf",
+          "sha256": "e0aee85060f168f0f2d8473d7ea41ce2f3230c1bc1374847505ea599288a7787"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 1923278688,
+          "hf_repo": "bartowski/gemma-2-2b-it-GGUF",
+          "hf_file": "gemma-2-2b-it-Q5_K_M.gguf",
+          "sha256": "be65d5966f7efd40d9d8c9d5f6667582d861de52df20133991e2e9cb491150da"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 2784495456,
+          "hf_repo": "bartowski/gemma-2-2b-it-GGUF",
+          "hf_file": "gemma-2-2b-it-Q8_0.gguf",
+          "sha256": "2d448a9aab894b8e8e18168cf3f490cb9f65632222f29f93514ac9ecc754debe"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 1638651744,
+          "hf_repo": "bartowski/gemma-2-2b-it-GGUF",
+          "hf_file": "gemma-2-2b-it-Q4_K_S.gguf",
+          "sha256": "1f99ab5cc78d32eb71e3bcc0312ad6cb3fad49654df1c567ff495929b35aa8be"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 2151393120,
+          "hf_repo": "bartowski/gemma-2-2b-it-GGUF",
+          "hf_file": "gemma-2-2b-it-Q6_K.gguf",
+          "sha256": "f82c5c2230a8b452221706461eb93203443373625d96a05912d4f96c845c2775"
+        }
+      ],
+      "notes": "Google's lightweight research-derived assistant for everyday dialogues.",
+      "recommended_min_memory_gb": 4,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "phi-3.5-mini",
+      "name": "Phi 3.5 Mini Instruct",
+      "family": "Phi",
+      "params_b": 3.8,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "reasoning",
+        "coding",
+        "long-context"
+      ],
+      "license": "MIT",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 2393232672,
+          "hf_repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
+          "hf_file": "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+          "sha256": "e4165e3a71af97f1b4820da61079826d8752a2088e313af0c7d346796c38eff5"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 2815276320,
+          "hf_repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
+          "hf_file": "Phi-3.5-mini-instruct-Q5_K_M.gguf",
+          "sha256": "3fb19cc624c455ed4b513ce5d698585e4ccdbaeb151138bdac25eec82b2c20dc"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 4061222688,
+          "hf_repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
+          "hf_file": "Phi-3.5-mini-instruct-Q8_0.gguf",
+          "sha256": "76fbf02f6fe92af57dbd818409bc8a0240026f1f3609bb405c3be94c973fb823"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 2188760352,
+          "hf_repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
+          "hf_file": "Phi-3.5-mini-instruct-Q4_K_S.gguf",
+          "sha256": "989feec38dd6101911668209050d2b11111288d6bea3b2a695b7e09433c740ed"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 2182468896,
+          "hf_repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
+          "hf_file": "Phi-3.5-mini-instruct-Q4_0.gguf",
+          "sha256": "6e0a4c93fe5db9408348cd2cbd15eee6f448efe6f91255a208c2d28701259b1d"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 3135853344,
+          "hf_repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
+          "hf_file": "Phi-3.5-mini-instruct-Q6_K.gguf",
+          "sha256": "cc4f0d756eb82447035314dbd247809a564189c20583e1d6fb926f9b6e1eb890"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 1955477280,
+          "hf_repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
+          "hf_file": "Phi-3.5-mini-instruct-Q3_K_M.gguf",
+          "sha256": "5e005a663fc15ee51c9aea089fbd63a557458b020ee799e369d17da273a8b855"
+        }
+      ],
+      "notes": "Microsoft's compact powerhouse with 128k context support and strong math/logic.",
+      "recommended_min_memory_gb": 6,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "deepseek-r1-distill-qwen-1.5b",
+      "name": "DeepSeek R1 Distill Qwen 1.5B",
+      "family": "DeepSeek",
+      "params_b": 1.5,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "reasoning",
+        "math",
+        "fast"
+      ],
+      "license": "MIT",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 1117320800,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
+          "sha256": "1741e5b2d062b07acf048bf0d2c514dadf2a48f94e2b4aa0cfe069af3838ee2f"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 1285494368,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-1.5B-Q5_K_M.gguf",
+          "sha256": "4d8f6465e96258cf44303eb02812c391d15f6c77f0d72e47757c98fd14994608"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 1894532192,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-1.5B-Q8_0.gguf",
+          "sha256": "166baa90e6a963de31a7713ff034f82317ff1fa41602f7c3ce583d3f6b551829"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 1071584864,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_S.gguf",
+          "sha256": "843e1b28b613872cf9f04e5c6d92493b32cfb6b4b9f4682bea2c57e14dbfec05"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 1068807776,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-1.5B-Q4_0.gguf",
+          "sha256": "b3af887d0a015b39fab2395e4faf682c1a81a6a3fd09a43f0d4292f7d94bf4d0"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 1464178784,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-1.5B-Q6_K.gguf",
+          "sha256": "c9c8aff5a84e2e9c1fd6ea57af5ab52cf5d7272d34460403d82880075e611039"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 924456032,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-1.5B-Q3_K_M.gguf",
+          "sha256": "b1094879ee7e222cba5be013e6de2d0658c64f91aef5d3c9bff0db5cefbfa020"
+        }
+      ],
+      "notes": "Miniature reasoning model trained with chain-of-thought distillation.",
+      "recommended_min_memory_gb": 4,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "qwen2.5-7b",
+      "name": "Qwen 2.5 7B Instruct",
+      "family": "Qwen",
+      "params_b": 7.6,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "coding",
+        "multilingual",
+        "quality"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 4683074240,
+          "hf_repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "sha256": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 5444831936,
+          "hf_repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-7B-Instruct-Q5_K_M.gguf",
+          "sha256": "2e998d7e181c8756c5ffc55231b9ee1cdc9d3acec4245d6e27d32bd8e738c474"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 8098525888,
+          "hf_repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-7B-Instruct-Q8_0.gguf",
+          "sha256": "9c6a6e61664446321d9c0dd7ee28a0d03914277609e21bc0e1fce4abe780ce1b"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 4457769664,
+          "hf_repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-7B-Instruct-Q4_K_S.gguf",
+          "sha256": "55ed9714c0063d22cc5ac1b3ad9330c88a6d6781c7d6e0cc58195351da8b18a3"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 4444121792,
+          "hf_repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-7B-Instruct-Q4_0.gguf",
+          "sha256": "b878c7e0729b96b9cb0c9f1a8e944a8b20d5d09df811540537f09c85a065b5c2"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 6254199488,
+          "hf_repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-7B-Instruct-Q6_K.gguf",
+          "sha256": "489138dfed4f04cd6dea56e5a8423e4aa05a0318cce2a4a72250fe1278e97cf8"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 3808391872,
+          "hf_repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-7B-Instruct-Q3_K_M.gguf",
+          "sha256": "6738a2d4f9b280c55b2a19a7ab27334a75d2cafc6ef82a11a075f4b5613eb736"
+        }
+      ],
+      "notes": "One of the best general-purpose 7B models available for chat and reasoning.",
+      "recommended_min_memory_gb": 8,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "qwen2.5-coder-7b",
+      "name": "Qwen 2.5 Coder 7B Instruct",
+      "family": "Qwen",
+      "params_b": 7.6,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "coding",
+        "quality"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 4683074336,
+          "hf_repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+          "sha256": "1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 5444832032,
+          "hf_repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-Coder-7B-Instruct-Q5_K_M.gguf",
+          "sha256": "98266f7c5ada4873f0a4d117e9fd61f374d1b136542a0f613cb63e4535607a89"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 8098525984,
+          "hf_repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-Coder-7B-Instruct-Q8_0.gguf",
+          "sha256": "ddabea51a3751a6412f06a8beaf9818a3e3e6931596337458407726220097071"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 4457769760,
+          "hf_repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-Coder-7B-Instruct-Q4_K_S.gguf",
+          "sha256": "f251ac4eb4bb30fef1d7fe88f8d82002b02f9aa8b81a6c6a2f19d8c35ce058e4"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 4444121888,
+          "hf_repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-Coder-7B-Instruct-Q4_0.gguf",
+          "sha256": "01f98a604944c259f33704faa5828bf2be9ada568a6c0d44fc7aef2463c2ec6a"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 6254199584,
+          "hf_repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-Coder-7B-Instruct-Q6_K.gguf",
+          "sha256": "62197abf47f1a46b8d775244024e845e79ce722d5fafe50d00437c955e52046a"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 3808391968,
+          "hf_repo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-Coder-7B-Instruct-Q3_K_M.gguf",
+          "sha256": "be81e2dafa06d02825dd3a20142c14af0e89087de1b7ce15fbc56f0d8dc8f6b6"
+        }
+      ],
+      "notes": "Dedicated code generation and debugging specialist.",
+      "recommended_min_memory_gb": 8,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "deepseek-r1-distill-qwen-7b",
+      "name": "DeepSeek R1 Distill Qwen 7B",
+      "family": "DeepSeek",
+      "params_b": 7.6,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "reasoning",
+        "math",
+        "quality"
+      ],
+      "license": "MIT",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 4683073504,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
+          "sha256": "731ece8d06dc7eda6f6572997feb9ee1258db0784827e642909d9b565641937b"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 5444831200,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-7B-Q5_K_M.gguf",
+          "sha256": "7b736fc4913dce4c7fbcebe5cb965a2fa7314a14b59e25fb53d415f9d18d7aa1"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 8098525152,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-7B-Q8_0.gguf",
+          "sha256": "cae89f90c4c2f1894c95393903d2a9776aea7083023ae6cd285b1cc7adafc323"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 4457768928,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-7B-Q4_K_S.gguf",
+          "sha256": "cfa2f69fd2983569515ebad512152c352c89043cbf2644b771ca4343b1d7b072"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 4444121056,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-7B-Q4_0.gguf",
+          "sha256": "5cd4ee65211770f1d99b4f6f4951780b9ef40e29314bd6542bb5bd0ad0bc29d1"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 6254198752,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-7B-Q6_K.gguf",
+          "sha256": "3ffa00e72db05668453687d5ab8e7c9fb19705cfd57292a956db17a3633c93f3"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 3808391136,
+          "hf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "hf_file": "DeepSeek-R1-Distill-Qwen-7B-Q3_K_M.gguf",
+          "sha256": "5c4f966a3b2907e08734dff2bea87acb01ec868a07ca1d8f7e30a3c6c62a98f3"
+        }
+      ],
+      "notes": "Remarkable math, logic, and coding reasoning capabilities from DeepSeek.",
+      "recommended_min_memory_gb": 8,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "llama-3.1-8b",
+      "name": "Llama 3.1 8B Instruct",
+      "family": "Llama",
+      "params_b": 8.0,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "general",
+        "quality"
+      ],
+      "license": "Llama 3.1 Community",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 4920739232,
+          "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+          "sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 5732992416,
+          "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3.1-8B-Instruct-Q5_K_M.gguf",
+          "sha256": "14e10feba0c82a55da198dcd69d137206ad22d116a809926d27fa5f2398c69c7"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 8540775840,
+          "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
+          "sha256": "9da71c45c90a821809821244d4971e5e5dfad7eb091f0b8ff0546392393b6283"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 4692673952,
+          "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3.1-8B-Instruct-Q4_K_S.gguf",
+          "sha256": "7b04439ae150b98bb52c219bcbbd6838d0e8d796d5295560d7d9c1f3fa836578"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 6596011424,
+          "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3.1-8B-Instruct-Q6_K.gguf",
+          "sha256": "33981adf6bae52c503fb5c24f72539010632f7ed290a56c1315a8cd50adca587"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 4018922912,
+          "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3.1-8B-Instruct-Q3_K_M.gguf",
+          "sha256": "6be122b5c8f2a33974953e58e0ffd2be505661acc6f4caf733e4bca130e89fea"
+        }
+      ],
+      "notes": "Industry-standard open weight model with broad tool-use and dialogue proficiency.",
+      "recommended_min_memory_gb": 10,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "mistral-7b-v0.3",
+      "name": "Mistral 7B Instruct v0.3",
+      "family": "Mistral",
+      "params_b": 7.2,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "general"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 4372812000,
+          "hf_repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+          "hf_file": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+          "sha256": "1270d22c0fbb3d092fb725d4d96c457b7b687a5f5a715abe1e818da303e562b6"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 5136175328,
+          "hf_repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+          "hf_file": "Mistral-7B-Instruct-v0.3-Q5_K_M.gguf",
+          "sha256": "0374072546aaf1257d1e34610edb11b691730d8ef7d44b5629693a2dd8e8d472"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 7702565088,
+          "hf_repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+          "hf_file": "Mistral-7B-Instruct-v0.3-Q8_0.gguf",
+          "sha256": "404857e776114baada71a08ebd3bba79d721ec7fca99705e7e7b892ae8bc583f"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 4144746720,
+          "hf_repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+          "hf_file": "Mistral-7B-Instruct-v0.3-Q4_K_S.gguf",
+          "sha256": "0415e35c7e6e156b949410f9d89ffb2cd058e4696a7f82dfcfcdf6a2e04d6320"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 5947248864,
+          "hf_repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+          "hf_file": "Mistral-7B-Instruct-v0.3-Q6_K.gguf",
+          "sha256": "757d75df89821a94841f341f3270b0709d36891dd8fbc41dfd059d213b54c3f5"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 3522941152,
+          "hf_repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+          "hf_file": "Mistral-7B-Instruct-v0.3-Q3_K_M.gguf",
+          "sha256": "145b11df092f04bbecb9fd99e83d1f3d8a6d1e53805682bfba1fe314f306e1d5"
+        }
+      ],
+      "notes": "Proven efficient 7B foundation with function calling and 32k context.",
+      "recommended_min_memory_gb": 8,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "gemma-2-9b",
+      "name": "Gemma 2 9B Instruct",
+      "family": "Gemma",
+      "params_b": 9.2,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "quality",
+        "general"
+      ],
+      "license": "Gemma Terms of Use",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 5761057728,
+          "hf_repo": "bartowski/gemma-2-9b-it-GGUF",
+          "hf_file": "gemma-2-9b-it-Q4_K_M.gguf",
+          "sha256": "13b2a7b4115bbd0900162edcebe476da1ba1fc24e718e8b40d32f6e300f56dfe"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 6647366592,
+          "hf_repo": "bartowski/gemma-2-9b-it-GGUF",
+          "hf_file": "gemma-2-9b-it-Q5_K_M.gguf",
+          "sha256": "a4b0b55ce809a09baaefb789b0046ac77ecd502aba8aeb2ed63cc237d9f40ce7"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 9827148736,
+          "hf_repo": "bartowski/gemma-2-9b-it-GGUF",
+          "hf_file": "gemma-2-9b-it-Q8_0.gguf",
+          "sha256": "07ac9ec01217d7bf2976a3a0dbf564a91b6957f94ab2ad30671eb6100f64bc2b"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 5478925248,
+          "hf_repo": "bartowski/gemma-2-9b-it-GGUF",
+          "hf_file": "gemma-2-9b-it-Q4_K_S.gguf",
+          "sha256": "61fd8af95257d1e39fa3bab7f4e4f7af65812f4fe017a808913f3c1c7151d33a"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 7589069760,
+          "hf_repo": "bartowski/gemma-2-9b-it-GGUF",
+          "hf_file": "gemma-2-9b-it-Q6_K.gguf",
+          "sha256": "70ea6fe1a4a8005ef6a0b379a87d271028cfa1b0be5fa2848e30419653d717a4"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 4761781184,
+          "hf_repo": "bartowski/gemma-2-9b-it-GGUF",
+          "hf_file": "gemma-2-9b-it-Q3_K_M.gguf",
+          "sha256": "3b5cb881500b1f72d456784a70214c8e49b7b3f49dae4fe524ca2c19e650b18b"
+        }
+      ],
+      "notes": "Top-tier open weights from Google DeepMind with high benchmark scores.",
+      "recommended_min_memory_gb": 12,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "qwen2.5-14b",
+      "name": "Qwen 2.5 14B Instruct",
+      "family": "Qwen",
+      "params_b": 14.7,
+      "architecture": "dense",
+      "active_params_b": null,
+      "tags": [
+        "chat",
+        "coding",
+        "quality"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 8988110976,
+          "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+          "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 10508873856,
+          "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-14B-Instruct-Q5_K_M.gguf",
+          "sha256": "48ad2dafedac636f62847f5338c356cd21f5cfa6b1e2c885360cb10c890b8cb2"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 15701598336,
+          "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-14B-Instruct-Q8_0.gguf",
+          "sha256": "23ca481b8226b2492ba8f3eb7af41e0f99d8605c16fb6dec7bc5cf6716b673cf"
+        },
+        {
+          "quant": "Q4_K_S",
+          "size_bytes": 8573431936,
+          "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-14B-Instruct-Q4_K_S.gguf",
+          "sha256": "1350a659484c31b4d7123211733cc0deb4ab56e47ca8e2fc04b6a0c3b2e2c999"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 8544268416,
+          "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-14B-Instruct-Q4_0.gguf",
+          "sha256": "480a003b42d51001a706452a01ea8e0501f23bb9b091124da804948c3a9a00f3"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 12124684416,
+          "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-14B-Instruct-Q6_K.gguf",
+          "sha256": "18cd6b7d5feb00c57ff81ede8f2164ffd86be90dbee9c05bf09ded1ab179740d"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 7339204736,
+          "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+          "hf_file": "Qwen2.5-14B-Instruct-Q3_K_M.gguf",
+          "sha256": "2f68ac3ba018f7de7641229f19adafde5e59d02bbf5651fdbcc510bb9f3facca"
+        }
+      ],
+      "notes": "Substantial 14B model balancing deep reasoning with reasonable memory requirements.",
+      "recommended_min_memory_gb": 16,
+      "last_verified": "2026-10-14"
+    },
+    {
+      "id": "mixtral-8x7b-instruct",
+      "name": "Mixtral 8x7B Instruct v0.1",
+      "family": "Mixtral",
+      "params_b": 46.7,
+      "architecture": "moe",
+      "active_params_b": 12.9,
+      "tags": [
+        "moe",
+        "quality",
+        "multilingual"
+      ],
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "quant": "Q4_K_M",
+          "size_bytes": 26441533376,
+          "hf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+          "hf_file": "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf",
+          "sha256": "9193684683657e90707087bd1ed19fd0b277ab66358d19edeadc26d6fdec4f53"
+        },
+        {
+          "quant": "Q5_K_M",
+          "size_bytes": 32229279680,
+          "hf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+          "hf_file": "mixtral-8x7b-instruct-v0.1.Q5_K_M.gguf",
+          "sha256": "af12961e014037ee8c5c9f3bf7cf9fd99cadc9dabd50f528a4248c4a8ee8fe77"
+        },
+        {
+          "quant": "Q8_0",
+          "size_bytes": 49624262592,
+          "hf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+          "hf_file": "mixtral-8x7b-instruct-v0.1.Q8_0.gguf",
+          "sha256": "cdca4a8c09dfd722702f781d479695cda0d45e1bd1cd602ba1b6085ad921fc5f"
+        },
+        {
+          "quant": "Q4_0",
+          "size_bytes": 26441533376,
+          "hf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+          "hf_file": "mixtral-8x7b-instruct-v0.1.Q4_0.gguf",
+          "sha256": "0c57465507f21bed4364fca37efd310bee92e25a4ce4f5678ef9b44e95830e4e"
+        },
+        {
+          "quant": "Q5_0",
+          "size_bytes": 32229279680,
+          "hf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+          "hf_file": "mixtral-8x7b-instruct-v0.1.Q5_0.gguf",
+          "sha256": "6c4dd1082dfa8d89f901039c7095f8b4343dca7a6782c82a72decb6a44475803"
+        },
+        {
+          "quant": "Q6_K",
+          "size_bytes": 38378760128,
+          "hf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+          "hf_file": "mixtral-8x7b-instruct-v0.1.Q6_K.gguf",
+          "sha256": "56638f9853b8fff80ac1fd4a91434a1c15c21d4c910811c5458df9ef092615fd"
+        },
+        {
+          "quant": "Q3_K_M",
+          "size_bytes": 20363356096,
+          "hf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+          "hf_file": "mixtral-8x7b-instruct-v0.1.Q3_K_M.gguf",
+          "sha256": "bd2e1499e68195f1a6ff151e6fa5c6632acc150b80cca4a3772cbb7ca59d44cd"
+        }
+      ],
+      "notes": "High capability Sparse Mixture-of-Experts with 12.9B active params during generation.",
+      "recommended_min_memory_gb": 32,
+      "last_verified": "2026-10-14"
+    }
+  ]
+}

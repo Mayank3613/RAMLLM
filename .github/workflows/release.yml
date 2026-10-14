@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-package:
+    name: Build sdist and wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/*
+
+  build-binaries:
+    name: Build Standalone Binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ramllm-linux-x86_64
+            binary_path: dist/ramllm
+          - os: macos-latest
+            artifact_name: ramllm-darwin-arm64
+            binary_path: dist/ramllm
+          - os: macos-13
+            artifact_name: ramllm-darwin-x86_64
+            binary_path: dist/ramllm
+          - os: windows-latest
+            artifact_name: ramllm-windows-x86_64.exe
+            binary_path: dist/ramllm.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies and PyInstaller
+        run: |
+          uv sync --all-extras
+          uv pip install pyinstaller
+
+      - name: Build standalone executable
+        shell: bash
+        run: |
+          uv run pyinstaller --onefile --name ramllm \
+            --add-data "src/ramllm/data/models_index.json:ramllm/data" \
+            --collect-all textual \
+            --collect-all rich \
+            src/ramllm/__main__.py
+
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          ${{ matrix.binary_path }} --version
+          ${{ matrix.binary_path }} doctor --plain || true
+
+      - name: Rename and compute checksum
+        shell: bash
+        run: |
+          cp "${{ matrix.binary_path }}" "${{ matrix.artifact_name }}"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
+          else
+            shasum -a 256 "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
+          fi
+
+      - name: Upload standalone binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
+
+  publish-release:
+    name: Create GitHub Release
+    needs: [build-package, build-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Prepare release directory and consolidated checksums
+        shell: bash
+        run: |
+          mkdir -p dist_release
+          find release-artifacts -type f -exec cp {} dist_release/ \;
+          cd dist_release
+          sha256sum * > SHA256SUMS.txt || true
+          ls -la
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist_release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

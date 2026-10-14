@@ -25,7 +25,13 @@ class LlamaCppAdapter(BackendAdapter):
         self._install: BackendInstall | None = None
 
     def detect(self) -> BackendInstall | None:
-        self._install = detect_llamacpp(self.binary_path)
+        if self.binary_path:
+            self._install = detect_llamacpp(self.binary_path)
+        else:
+            from ramllm.services.backend_manager import discover_backend
+
+            res = discover_backend()
+            self._install = res.install if res else None
         return self._install
 
     def capabilities(self, install: BackendInstall) -> Capabilities:
