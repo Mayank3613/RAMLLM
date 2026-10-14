@@ -1,16 +1,16 @@
 """Unit tests for RAMLLM schemas."""
 
 from datetime import datetime
+
 from ramllm.core.schemas import (
+    ExecutionPlan,
     GpuInfo,
     HardwareProfile,
-    ModelInfo,
-    UserRequest,
-    Placement,
     KvConfig,
     MemoryEstimate,
+    ModelInfo,
+    Placement,
     SpeedEstimate,
-    ExecutionPlan,
 )
 
 
