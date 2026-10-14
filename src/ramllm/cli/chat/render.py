@@ -56,7 +56,7 @@ class ChatRenderer:
             except KeyboardInterrupt:
                 interrupted = True
                 self.console.print(
-                    "\n[yellow dim]⚠ Generation stopped by user (Ctrl-C)[/yellow dim]"
+                    "\n[yellow dim][!] Generation stopped by user (Ctrl-C)[/yellow dim]"
                 )
             except Exception:
                 # If Markdown parsing fails on mid-stream tokens, fall back to plain chunk writing

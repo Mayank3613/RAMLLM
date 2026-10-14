@@ -48,7 +48,7 @@ def update_command(
 
     upgrade_cmd = get_upgrade_command(method)
 
-    console.print("\n[bold cyan]🚀 A new version of RAMLLM is available![/bold cyan]")
+    console.print("\n[bold cyan]* A new version of RAMLLM is available![/bold cyan]")
     console.print(f"  • Current version:  [dim]v{current_ver}[/dim]")
     console.print(f"  • Latest version:   [bold green]v{latest_ver}[/bold green]")
     console.print(f"  • Install method:   [cyan]{method}[/cyan]\n")

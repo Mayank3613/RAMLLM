@@ -626,7 +626,7 @@ def run(
         raise typer.Exit(code=1)
 
     def _on_retry(attempt: int, next_plan: ExecutionPlan, cause: str) -> None:
-        console.print(f"\n[bold yellow]⚠ Launch failed: {cause}[/bold yellow]")
+        console.print(f"\n[bold yellow][!] Launch failed: {cause}[/bold yellow]")
         console.print(
             f"[cyan]↻ Automatically adapting to smaller plan (attempt {attempt}/{max_retries}): '{next_plan.id}'...[/cyan]"
         )

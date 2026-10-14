@@ -208,7 +208,7 @@ def chat_command(
     if chosen_plan.verdict in ("CONSTRAINED", "BATCH_ONLY") and not single_prompt:
         speed_est = f"~{chosen_plan.speed.decode_tok_s_low} tok/s"
         console.print(
-            f"[yellow]⚠ Notice: {chosen_plan.verdict} verdict. Speed will be constrained ({speed_est}).[/yellow]"
+            f"[yellow][!] Notice: {chosen_plan.verdict} verdict. Speed will be constrained ({speed_est}).[/yellow]"
         )
         if sys.stdin.isatty():
             confirmed = typer.confirm("Launch anyway?", default=True)
@@ -238,7 +238,7 @@ def chat_command(
 
     def _on_retry(attempt: int, next_plan: Any, cause: str) -> None:
         console.print(
-            f"[yellow]⚠ Launch attempt {attempt} failed ({cause}). Adapting plan...[/yellow]"
+            f"[yellow][!] Launch attempt {attempt} failed ({cause}). Adapting plan...[/yellow]"
         )
 
     try:

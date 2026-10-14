@@ -20,6 +20,9 @@ irm https://raw.githubusercontent.com/Mayank3613/RAMLLM/main/scripts/install.ps1
 
 ### Or with Package Managers
 ```bash
+# Using pip (published on PyPI)
+pip install ramllm
+
 # Using uv (fastest & recommended)
 uv tool install ramllm
 

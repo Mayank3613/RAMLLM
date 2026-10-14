@@ -141,7 +141,7 @@ def serve_command(
     active_api_key = api_key
     if host in ("0.0.0.0", "::"):
         console.print(
-            "[bold yellow]⚠ Warning: Binding to 0.0.0.0 exposes the API to your local network.[/bold yellow]"
+            "[bold yellow][!] Warning: Binding to 0.0.0.0 exposes the API to your local network.[/bold yellow]"
         )
         if not active_api_key:
             active_api_key = secrets.token_hex(16)

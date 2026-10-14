@@ -255,7 +255,7 @@ def run_wizard(
 
         c.print(
             Panel(
-                "[bold green]✔ RAMLLM Setup Complete![/bold green]\n\n"
+                "[bold green][OK] RAMLLM Setup Complete![/bold green]\n\n"
                 f"• Default Model: [cyan]{cfg.default_model or 'None'}[/cyan]\n"
                 f"• Tradeoff Mode: [cyan]{cfg.mode}[/cyan]\n"
                 f"• Memory Usage: [cyan]{cfg.memory_usage}[/cyan]\n\n"

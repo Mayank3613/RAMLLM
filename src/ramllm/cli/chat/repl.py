@@ -109,7 +109,7 @@ class ChatSession:
         # Warn at 85% utilization
         if current_tokens >= int(ctx_limit * 0.85):
             self.console.print(
-                f"[yellow]⚠ Context window is {int((current_tokens / ctx_limit) * 100)}% full "
+                f"[yellow][!] Context window is {int((current_tokens / ctx_limit) * 100)}% full "
                 f"({current_tokens}/{ctx_limit} tokens). "
                 f"Older messages will be pruned on next turn, or use `/ctx` to expand.[/yellow]\n"
             )

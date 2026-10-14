@@ -8,8 +8,8 @@ RAMLLM uses Python 3.11+ and `uv` for lightning-fast virtual environment managem
 
 1. Clone repository:
    ```bash
-   git clone https://github.com/your-org/ramllm.git
-   cd ramllm
+   git clone https://github.com/Mayank3613/RAMLLM.git
+   cd RAMLLM
    ```
 
 2. Create virtual environment and install dev dependencies:

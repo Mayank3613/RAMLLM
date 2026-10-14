@@ -67,9 +67,9 @@ class MemoryPanel(Static):
             self.vram_bar.display = False
 
         if warnings:
-            self.status_label.update(f"[yellow b]⚠ Warning: {warnings[0]}[/yellow b]")
+            self.status_label.update(f"[yellow b][!] Warning: {warnings[0]}[/yellow b]")
         else:
-            self.status_label.update("[green]✔ Status: Headroom safe[/green]")
+            self.status_label.update("[green][OK] Status: Headroom safe[/green]")
 
 
 class SpeedPanel(Static):

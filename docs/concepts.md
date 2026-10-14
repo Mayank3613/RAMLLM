@@ -15,11 +15,11 @@ Your computer provides memory in different tiers with radically different speeds
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│ GPU VRAM (Unified / Dedicated)  ⚡ 150 – 1,000+ GB/s   │
+│ GPU VRAM (Unified / Dedicated)  [Fast]   150–1,000+ GB/s│
 ├────────────────────────────────────────────────────────┤
-│ System RAM (DDR4 / DDR5)        🚀 40 – 90 GB/s        │
+│ System RAM (DDR4 / DDR5)        [Medium] 40–90 GB/s    │
 ├────────────────────────────────────────────────────────┤
-│ NVMe SSD / Disk (Swap)          🐢 1 – 7 GB/s          │
+│ NVMe SSD / Disk (Swap)          [Slow]   1–7 GB/s      │
 └────────────────────────────────────────────────────────┘
 ```
 

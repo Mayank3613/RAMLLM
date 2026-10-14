@@ -4,7 +4,7 @@ A quick one-page reference for common RAMLLM commands, options, and shortcuts.
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ```bash
 ramllm                     # Interactive home menu (TTY) or setup wizard
@@ -17,7 +17,7 @@ ramllm explain <term>      # Plain-English glossary (vram, ram, quant, kv, moe..
 
 ---
 
-## 💬 Interactive Chat REPL (`ramllm chat`)
+## Interactive Chat REPL (`ramllm chat`)
 
 ```bash
 ramllm chat                # Launch chat with your default configured model
@@ -45,7 +45,7 @@ ramllm chat --plain        # Simple text mode (no colors, markdown, or status ba
 
 ---
 
-## 🌐 API Server & Background Processes
+## API Server & Background Processes
 
 ```bash
 ramllm serve <model>              # Start OpenAI-compatible API server on port 8080
@@ -61,7 +61,7 @@ ramllm dashboard                  # Full-screen live TUI monitoring all engines
 
 ---
 
-## 📦 Models Management
+## Models Management
 
 ```bash
 ramllm recommend                  # See ranked models that fit your computer best
@@ -76,7 +76,7 @@ ramllm models scan <dir>          # Scan and register local GGUF files in direct
 
 ---
 
-## ⚙️ Memory Budgets & Modes
+## Memory Budgets & Modes
 
 ```bash
 # Performance Tradeoff Modes
@@ -94,7 +94,7 @@ ramllm plan <model> --cpu-only        # Force pure CPU execution
 
 ---
 
-## 🧹 Maintenance & Configuration
+## Maintenance & Configuration
 
 ```bash
 ramllm config list                # View all configured settings
