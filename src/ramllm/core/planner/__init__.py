@@ -4,6 +4,7 @@ from ramllm.core.planner.cost_model import estimate_speed
 from ramllm.core.planner.feasibility import calculate_safety_margins, generate_remedies
 from ramllm.core.planner.planner import create_execution_plans
 from ramllm.core.planner.recommend import ModelRecommendation, recommend_models
+from ramllm.core.planner.reduction import get_reduced_plan
 
 __all__ = [
     "create_execution_plans",
@@ -12,4 +13,5 @@ __all__ = [
     "estimate_speed",
     "recommend_models",
     "ModelRecommendation",
+    "get_reduced_plan",
 ]

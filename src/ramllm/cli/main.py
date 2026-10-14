@@ -19,9 +19,10 @@ from ramllm.backends.llamacpp.install import detect_llamacpp
 from ramllm.core.analyzer.gguf import analyze_gguf
 from ramllm.core.governor.enforcement import get_current_enforcement_status
 from ramllm.core.governor.monitor import MemoryGovernor
+from ramllm.core.governor.recovery import RecoveryExhaustedError, launch_with_recovery
 from ramllm.core.planner import create_execution_plans, recommend_models
 from ramllm.core.profiler import load_synthetic_profile, probe_hardware
-from ramllm.core.schemas import UserRequest
+from ramllm.core.schemas import ExecutionPlan, UserRequest
 from ramllm.registry import (
     add_model,
     list_models,
@@ -486,6 +487,16 @@ def run(
     ] = None,
     port: Annotated[int, typer.Option("--port", help="Port for llama-server")] = 8080,
     live: Annotated[bool, typer.Option("--live", help="Monitor memory live with governor")] = False,
+    auto_retry: Annotated[
+        bool,
+        typer.Option(
+            "--auto-retry/--no-auto-retry",
+            help="Automatically adapt to smaller plans on failure or OOM",
+        ),
+    ] = True,
+    max_retries: Annotated[
+        int, typer.Option("--max-retries", help="Maximum auto-retry recovery attempts")
+    ] = 3,
 ) -> None:
     """Run model with budget enforcement, buffer validation, and interactive chat."""
     if not model.exists():
@@ -532,12 +543,38 @@ def run(
         )
         raise typer.Exit(code=1)
 
-    with console.status("[bold blue]Launching llama-server and loading model buffers..."):
-        try:
-            proc = adapter.launch(chosen_plan, port=port, timeout_s=40.0)
-        except Exception as e:
-            console.print(f"[red]Launch failed: {e}[/red]")
-            raise typer.Exit(code=1) from e
+    def _on_retry(attempt: int, next_plan: ExecutionPlan, cause: str) -> None:
+        console.print(f"\n[bold yellow]⚠ Launch failed: {cause}[/bold yellow]")
+        console.print(
+            f"[cyan]↻ Automatically adapting to smaller plan (attempt {attempt}/{max_retries}): '{next_plan.id}'...[/cyan]"
+        )
+        for w in next_plan.warnings:
+            console.print(f"  [dim]• {w}[/dim]")
+
+    try:
+        with console.status("[bold blue]Launching backend and verifying memory buffers..."):
+            proc, active_plan, recovery_logs = launch_with_recovery(
+                adapter=adapter,
+                plan=chosen_plan,
+                model=model_info,
+                hw=hw,
+                req=req,
+                port=port,
+                timeout_s=40.0,
+                max_retries=max_retries,
+                auto_retry=auto_retry,
+                on_retry=_on_retry,
+            )
+    except RecoveryExhaustedError as err:
+        console.print(f"\n[bold red]Launch failed and recovery exhausted:[/bold red] {err.message}")
+        if err.remedies:
+            console.print("\n[bold yellow]Recommended remedies:[/bold yellow]")
+            for r in err.remedies:
+                console.print(f"  [yellow]• {r}[/yellow]")
+        raise typer.Exit(code=1) from err
+    except Exception as e:
+        console.print(f"\n[bold red]Launch failed:[/bold red] {e}")
+        raise typer.Exit(code=1) from e
 
     governor: MemoryGovernor | None = None
     if live:
@@ -545,9 +582,13 @@ def run(
         governor.start()
 
     try:
+        if recovery_logs:
+            console.print(
+                f"\n[bold green]✓ Session recovered successfully with reduced plan '{active_plan.id}'[/bold green]"
+            )
         # Buffer sizes comparison table
         mem_report = proc.initial_memory_report
-        pred_vram = sum(chosen_plan.memory.vram_peak_bytes.values()) / (1024**3)
+        pred_vram = sum(active_plan.memory.vram_peak_bytes.values()) / (1024**3)
         actual_ram_mb = mem_report.ram_rss_bytes / (1024**2)
 
         console.print("\n[bold]Memory Verification (Predicted vs Actual):[/bold]")
@@ -649,6 +690,16 @@ def serve(
     context: Annotated[str, typer.Option("--context", help="Target context window")] = "4096",
     port: Annotated[int, typer.Option("--port", help="Port to listen")] = 8080,
     host: Annotated[str, typer.Option("--host", help="Host interface to bind")] = "127.0.0.1",
+    auto_retry: Annotated[
+        bool,
+        typer.Option(
+            "--auto-retry/--no-auto-retry",
+            help="Automatically adapt to smaller plans on failure or OOM",
+        ),
+    ] = True,
+    max_retries: Annotated[
+        int, typer.Option("--max-retries", help="Maximum auto-retry recovery attempts")
+    ] = 3,
 ) -> None:
     """Start OpenAI-compatible API server with active memory governor."""
     if not model.exists():
@@ -665,6 +716,8 @@ def serve(
         ram_budget_bytes=ram_bytes,
         context=ctx_len,
         gpu_indices=gpu_indices,
+        auto_retry=auto_retry,
+        max_retries=max_retries,
     )
 
     console.print(f"[bold green]Starting RAMLLM API server on http://{host}:{port}...[/bold green]")

@@ -11,9 +11,10 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ramllm.backends import LlamaCppAdapter
-from ramllm.backends.base import BackendProcess
+from ramllm.backends.base import BackendAdapter, BackendProcess
 from ramllm.core.analyzer.gguf import analyze_gguf
 from ramllm.core.governor.monitor import MemoryGovernor, TierMetrics
+from ramllm.core.governor.recovery import RecoveryExhaustedError, launch_with_recovery
 from ramllm.core.planner import create_execution_plans
 from ramllm.core.profiler import probe_hardware
 from ramllm.core.schemas import ExecutionPlan, HardwareProfile, ModelInfo, UserRequest
@@ -26,6 +27,7 @@ class ReplanRequest(BaseModel):
     ram_budget_bytes: int | None = None
     context: int | None = None
     gpu_indices: list[int] | None = None
+    allow_streaming: bool | None = None
 
 
 class ServerState:
@@ -40,27 +42,54 @@ class ServerState:
         self.backend_process: BackendProcess | None = None
         self.governor: MemoryGovernor | None = None
         self.internal_port: int = 18080
-        self.adapter: LlamaCppAdapter = LlamaCppAdapter()
+        self.adapter: BackendAdapter = LlamaCppAdapter()
         self.lock: asyncio.Lock = asyncio.Lock()
+        self.replan_pending: bool = False
+        self.auto_retry: bool = True
+        self.max_retries: int = 3
 
 
 state = ServerState()
 
 
-def launch_active_session() -> None:
-    """Plan and launch the backend session with memory governor."""
+def _handle_server_memory_pressure(metrics: TierMetrics) -> None:
+    """Invoked when memory governor detects external memory pressure during server runtime."""
+    state.replan_pending = True
+
+
+def launch_active_session(auto_retry: bool | None = None) -> None:
+    """Plan and launch the backend session with reactive recovery and memory governor."""
     if not state.model_info or not state.hw_profile or not state.user_request:
         raise RuntimeError("Server state not initialized.")
 
     plans = create_execution_plans(state.model_info, state.hw_profile, state.user_request)
     chosen = plans[0]
     if chosen.verdict == "INFEASIBLE":
-        raise RuntimeError(f"Plan is INFEASIBLE: {chosen.warnings}")
+        raise ValueError(f"Plan is INFEASIBLE: {'; '.join(chosen.warnings)}")
 
-    state.active_plan = chosen
-    state.backend_process = state.adapter.launch(chosen, port=state.internal_port, timeout_s=40.0)
-    state.governor = MemoryGovernor(state.backend_process, state.hw_profile)
+    use_auto_retry = state.auto_retry if auto_retry is None else auto_retry
+
+    proc, final_plan, _ = launch_with_recovery(
+        adapter=state.adapter,
+        plan=chosen,
+        model=state.model_info,
+        hw=state.hw_profile,
+        req=state.user_request,
+        port=state.internal_port,
+        timeout_s=40.0,
+        max_retries=state.max_retries,
+        auto_retry=use_auto_retry,
+    )
+
+    state.active_plan = final_plan
+    state.backend_process = proc
+    state.governor = MemoryGovernor(
+        proc,
+        state.hw_profile,
+        on_pressure=_handle_server_memory_pressure,
+    )
     state.governor.start()
+    state.replan_pending = False
 
 
 def shutdown_active_session() -> None:
@@ -138,6 +167,12 @@ async def replan(req: ReplanRequest) -> ExecutionPlan:
             req.gpu_indices if req.gpu_indices is not None else state.user_request.gpu_indices
         )
 
+        allow_streaming = (
+            req.allow_streaming
+            if req.allow_streaming is not None
+            else state.user_request.allow_streaming
+        )
+
         state.user_request = UserRequest(
             model=state.model_path,
             vram_budget_bytes=vram_dict,
@@ -145,9 +180,22 @@ async def replan(req: ReplanRequest) -> ExecutionPlan:
             min_context=ctx,
             target_context=ctx,
             gpu_indices=gpu_idxs,
+            allow_streaming=allow_streaming,
         )
 
-        launch_active_session()
+        try:
+            launch_active_session()
+        except (ValueError, RecoveryExhaustedError) as err:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Cannot replan under requested constraints: {err}",
+            ) from err
+        except Exception as err:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Replan failed unexpectedly: {err}",
+            ) from err
+
         if not state.active_plan:
             raise HTTPException(status_code=500, detail="Failed to establish new plan.")
         return state.active_plan
@@ -233,12 +281,20 @@ def create_app(
     context: int = 4096,
     gpu_indices: list[int] | None = None,
     internal_port: int = 18080,
+    adapter: BackendAdapter | None = None,
+    hw_profile: HardwareProfile | None = None,
+    auto_retry: bool = True,
+    max_retries: int = 3,
 ) -> FastAPI:
     """Configure server state and return FastAPI application instance."""
     state.model_path = model_path
     state.internal_port = internal_port
+    state.auto_retry = auto_retry
+    state.max_retries = max_retries
+    if adapter:
+        state.adapter = adapter
     state.model_info = analyze_gguf(model_path)
-    state.hw_profile = probe_hardware(quick=True)
+    state.hw_profile = hw_profile or probe_hardware(quick=True)
     state.user_request = UserRequest(
         model=model_path,
         vram_budget_bytes=vram_budget_bytes,

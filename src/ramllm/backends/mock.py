@@ -1,4 +1,4 @@
-"""Mock backend adapter for testing and CI."""
+"""Mock backend adapter for testing, CI, and chaos fault injection."""
 
 from ramllm.backends.base import (
     BackendAdapter,
@@ -11,9 +11,29 @@ from ramllm.core.schemas import ExecutionPlan
 
 
 class MockBackendAdapter(BackendAdapter):
-    """Mock backend simulating process lifecycle and memory reporting."""
+    """Mock backend simulating process lifecycle, memory reporting, and fault injection."""
 
     name = "mock"
+
+    def __init__(
+        self,
+        fail_launches: int = 0,
+        fail_error: Exception | None = None,
+        fail_if_gpu: bool = False,
+        fail_if_gpu_layers_gt: int | None = None,
+        fail_if_kv_f16: bool = False,
+        fail_if_context_gt: int | None = None,
+    ):
+        self.fail_launches = fail_launches
+        self.fail_error = fail_error
+        self.fail_if_gpu = fail_if_gpu
+        self.fail_if_gpu_layers_gt = fail_if_gpu_layers_gt
+        self.fail_if_kv_f16 = fail_if_kv_f16
+        self.fail_if_context_gt = fail_if_context_gt
+
+        self.launch_count: int = 0
+        self.launched_plans: list[ExecutionPlan] = []
+        self.stopped: bool = False
 
     def detect(self) -> BackendInstall | None:
         return BackendInstall(
@@ -40,6 +60,42 @@ class MockBackendAdapter(BackendAdapter):
     def launch(
         self, plan: ExecutionPlan, port: int = 8080, timeout_s: float = 30.0
     ) -> BackendProcess:
+        self.launch_count += 1
+        self.launched_plans.append(plan)
+
+        gpu_layer_count = sum(len(layers) for layers in plan.placement.gpu_layers.values())
+
+        # Fault Injection: Driver Loss / GPU Unavailable
+        if self.fail_if_gpu and gpu_layer_count > 0:
+            raise self.fail_error or RuntimeError(
+                "CUDA error: all CUDA-capable devices are busy or unavailable (driver reset)"
+            )
+
+        # Fault Injection: GPU VRAM limit
+        if self.fail_if_gpu_layers_gt is not None and gpu_layer_count > self.fail_if_gpu_layers_gt:
+            raise self.fail_error or RuntimeError(
+                f"CUDA out of memory: failed to allocate {gpu_layer_count} layers in VRAM"
+            )
+
+        # Fault Injection: KV Cache allocation failure
+        if self.fail_if_kv_f16 and plan.kv.type_k == "f16":
+            raise self.fail_error or RuntimeError(
+                "ggml_cuda_init: failed to allocate f16 KV cache buffer"
+            )
+
+        # Fault Injection: Context limit (Host OOM)
+        if self.fail_if_context_gt is not None and plan.kv.context > self.fail_if_context_gt:
+            raise self.fail_error or RuntimeError(
+                f"std::bad_alloc: host memory exhausted for context window {plan.kv.context}"
+            )
+
+        # Fault Injection: N consecutive failures
+        if self.fail_launches > 0:
+            self.fail_launches -= 1
+            raise self.fail_error or RuntimeError(
+                "CUDA out of memory: failed to allocate 8.0 GiB buffer"
+            )
+
         # Simulate initial memory report from plan estimates
         initial_mem = MemoryReport(
             vram_used_bytes=plan.memory.vram_peak_bytes,
@@ -60,4 +116,4 @@ class MockBackendAdapter(BackendAdapter):
         return proc.initial_memory_report
 
     def stop(self, proc: BackendProcess) -> None:
-        pass
+        self.stopped = True

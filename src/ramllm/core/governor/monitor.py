@@ -2,6 +2,7 @@
 
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime
 
 import psutil
@@ -28,6 +29,8 @@ class TierMetrics(BaseModel):
     predicted_vram_bytes: dict[int, int]
     budget_exceeded: bool
     enforcement_applied: bool = False
+    pressure_detected: bool = False
+    process_alive: bool = True
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -42,6 +45,8 @@ class MemoryGovernor:
         tolerance: float = 0.15,
         enforce: bool = True,
         enforcement_manager: EnforcementManager | None = None,
+        pressure_threshold_ram_bytes: int = 500 * 1024 * 1024,
+        on_pressure: Callable[[TierMetrics], None] | None = None,
     ):
         self.process_handle = process_handle
         self.plan: ExecutionPlan = process_handle.plan
@@ -51,6 +56,10 @@ class MemoryGovernor:
         self.enforce = enforce
         self.enforcement_manager = enforcement_manager or get_enforcement_manager()
         self.enforcement_applied = False
+        self.pressure_threshold_ram_bytes = pressure_threshold_ram_bytes
+        self.on_pressure = on_pressure
+        self.pressure_detected = False
+        self._pressure_signaled = False
 
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -150,10 +159,21 @@ class MemoryGovernor:
                 f"Swap thrashing detected ({swap_in_rate / (1024**2):.1f} MB/s swap-in rate) - system memory under heavy pressure."
             )
 
-        # Check available RAM headroom
-        if vmem.available < 500 * 1024 * 1024:
+        # Check backend process health
+        process_alive = True
+        if self.process_handle.process and self.process_handle.process.poll() is not None:
+            process_alive = False
+            code = self.process_handle.process.poll()
+            warnings.append(f"Backend process terminated unexpectedly (exit code {code}).")
+
+        # Check available RAM headroom and memory pressure
+        is_pressure = vmem.available < self.pressure_threshold_ram_bytes
+        if is_pressure:
+            self.pressure_detected = True
+            avail_mb = vmem.available / (1024**2)
+            thresh_mb = self.pressure_threshold_ram_bytes / (1024**2)
             warnings.append(
-                f"Critical system memory pressure: only {vmem.available / (1024**2):.1f} MB RAM available."
+                f"Critical system memory pressure: only {avail_mb:.1f} MB RAM available (threshold: {thresh_mb:.1f} MB)."
             )
 
         return TierMetrics(
@@ -168,6 +188,8 @@ class MemoryGovernor:
             predicted_vram_bytes=self.plan.memory.vram_peak_bytes,
             budget_exceeded=budget_exceeded,
             enforcement_applied=self.enforcement_applied,
+            pressure_detected=self.pressure_detected,
+            process_alive=process_alive,
             warnings=warnings,
         )
 
@@ -178,6 +200,15 @@ class MemoryGovernor:
                 self._history.append(metrics)
                 if len(self._history) > self._max_history:
                     self._history.pop(0)
+
+            # Invoke pressure callback if first detected
+            if self.pressure_detected and not self._pressure_signaled and self.on_pressure:
+                self._pressure_signaled = True
+                try:
+                    self.on_pressure(metrics)
+                except Exception:
+                    pass
+
             self._stop_event.wait(self.sample_interval_s)
 
     def get_latest_metrics(self) -> TierMetrics:
