@@ -28,12 +28,13 @@ def detect_disk_kind(target_path: Path) -> Literal["nvme", "ssd", "hdd", "unknow
         try:
             # Check rotational flag in sysfs
             stat = os.stat(target_path)
-            major = os.major(stat.st_dev)
-            minor = os.minor(stat.st_dev)
-            rot_path = Path(f"/sys/dev/block/{major}:{minor}/queue/rotational")
-            if rot_path.exists():
-                is_rot = rot_path.read_text().strip() == "1"
-                return "hdd" if is_rot else "nvme"
+            if hasattr(os, "major") and hasattr(os, "minor"):
+                major = getattr(os, "major")(stat.st_dev)  # noqa: B009
+                minor = getattr(os, "minor")(stat.st_dev)  # noqa: B009
+                rot_path = Path(f"/sys/dev/block/{major}:{minor}/queue/rotational")
+                if rot_path.exists():
+                    is_rot = rot_path.read_text().strip() == "1"
+                    return "hdd" if is_rot else "nvme"
         except Exception:
             pass
 
