@@ -1,0 +1,30 @@
+{
+  "os": "windows",
+  "cpu_name": "AMD Ryzen 7 5800H",
+  "cpu_cores_physical": 8,
+  "cpu_cores_logical": 16,
+  "cpu_features": ["avx", "avx2", "fma"],
+  "ram_total_bytes": 17179869184,
+  "ram_available_bytes": 13743895347,
+  "swap_total_bytes": 8589934592,
+  "ram_bandwidth_bytes_s": 38000000000.0,
+  "disk_read_bandwidth_bytes_s": 3200000000.0,
+  "disk_kind": "nvme",
+  "gpus": [
+    {
+      "index": 0,
+      "vendor": "nvidia",
+      "name": "NVIDIA GeForce RTX 3060 Laptop GPU",
+      "api_support": ["cuda", "vulkan"],
+      "vram_total_bytes": 6442450944,
+      "vram_free_bytes": 5905580032,
+      "compute_capability": "8.6",
+      "unified_memory": false,
+      "pcie_gen": 3,
+      "pcie_lanes": 8,
+      "h2d_bandwidth_bytes_s": 7000000000.0,
+      "vram_bandwidth_bytes_s": 336000000000.0
+    }
+  ],
+  "measured_at": "2026-10-14T10:00:00"
+}

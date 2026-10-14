@@ -1,0 +1,15 @@
+{
+  "os": "linux",
+  "cpu_name": "Intel Core i5-1135G7 @ 2.40GHz",
+  "cpu_cores_physical": 4,
+  "cpu_cores_logical": 8,
+  "cpu_features": ["avx", "avx2", "fma"],
+  "ram_total_bytes": 8589934592,
+  "ram_available_bytes": 6442450944,
+  "swap_total_bytes": 4294967296,
+  "ram_bandwidth_bytes_s": 28000000000.0,
+  "disk_read_bandwidth_bytes_s": 2500000000.0,
+  "disk_kind": "nvme",
+  "gpus": [],
+  "measured_at": "2026-10-14T10:00:00"
+}

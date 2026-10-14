@@ -1,0 +1,30 @@
+{
+  "os": "macos",
+  "cpu_name": "Apple M3 Max",
+  "cpu_cores_physical": 14,
+  "cpu_cores_logical": 14,
+  "cpu_features": ["neon", "fp16", "dotprod"],
+  "ram_total_bytes": 38654705664,
+  "ram_available_bytes": 32000000000,
+  "swap_total_bytes": 8589934592,
+  "ram_bandwidth_bytes_s": 300000000000.0,
+  "disk_read_bandwidth_bytes_s": 5000000000.0,
+  "disk_kind": "nvme",
+  "gpus": [
+    {
+      "index": 0,
+      "vendor": "apple",
+      "name": "Apple M3 Max (30-core GPU)",
+      "api_support": ["metal"],
+      "vram_total_bytes": 38654705664,
+      "vram_free_bytes": 32000000000,
+      "compute_capability": null,
+      "unified_memory": true,
+      "pcie_gen": null,
+      "pcie_lanes": null,
+      "h2d_bandwidth_bytes_s": null,
+      "vram_bandwidth_bytes_s": 300000000000.0
+    }
+  ],
+  "measured_at": "2026-10-14T10:00:00"
+}
