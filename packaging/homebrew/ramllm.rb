@@ -8,28 +8,18 @@ class Ramllm < Formula
   license "Apache-2.0"
 
   on_macos do
-    if Hardware::CPU.arm?
-      url "https://github.com/Mayank3613/RAMLLM/releases/download/v#{version}/ramllm-darwin-arm64"
-      # sha256 is generated in release workflow SHA256SUMS.txt
-      sha256 "REPLACE_WITH_DARWIN_ARM64_SHA256"
+    url "https://github.com/Mayank3613/RAMLLM/releases/download/v#{version}/ramllm-darwin-arm64"
+    sha256 "b15962071ef3256a4b88403171eb864129a30cf5d48a92e54acf077c5e3f0fc3"
 
-      def install
-        bin.install "ramllm-darwin-arm64" => "ramllm"
-      end
-    else
-      url "https://github.com/Mayank3613/RAMLLM/releases/download/v#{version}/ramllm-darwin-x86_64"
-      sha256 "REPLACE_WITH_DARWIN_X86_64_SHA256"
-
-      def install
-        bin.install "ramllm-darwin-x86_64" => "ramllm"
-      end
+    def install
+      bin.install "ramllm-darwin-arm64" => "ramllm"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
       url "https://github.com/Mayank3613/RAMLLM/releases/download/v#{version}/ramllm-linux-x86_64"
-      sha256 "REPLACE_WITH_LINUX_X86_64_SHA256"
+      sha256 "4a5685d7c6d8b12c27f49b05bb2e578a461d983af17bc5e1f6c60847e56eff03"
 
       def install
         bin.install "ramllm-linux-x86_64" => "ramllm"

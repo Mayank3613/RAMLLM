@@ -44,9 +44,6 @@ jobs:
           - os: macos-latest
             artifact_name: ramllm-darwin-arm64
             binary_path: dist/ramllm
-          - os: macos-13
-            artifact_name: ramllm-darwin-x86_64
-            binary_path: dist/ramllm
           - os: windows-latest
             artifact_name: ramllm-windows-x86_64.exe
             binary_path: dist/ramllm.exe

@@ -65,9 +65,12 @@ curl -fsSL https://raw.githubusercontent.com/Mayank3613/RAMLLM/main/scripts/inst
 irm https://raw.githubusercontent.com/Mayank3613/RAMLLM/main/scripts/install.ps1 | iex
 ```
 
-### Or using Python Package Managers
+### Or using Package Managers
 ```bash
-# Recommended: Install directly from GitHub with uv tool
+# With Homebrew (macOS / Linux)
+brew install Mayank3613/tap/ramllm
+
+# Fastest with uv tool (directly from GitHub)
 uv tool install git+https://github.com/Mayank3613/RAMLLM.git
 
 # Or with pipx
