@@ -61,20 +61,37 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     }
 }
 
-$pkgSpec = "ramllm"
+$gitUrl = "git+https://github.com/Mayank3613/RAMLLM.git"
 if ($Version -ne "") {
-    $pkgSpec = "ramllm==$Version"
+    $cleanVer = $Version.TrimStart('v')
+    $gitSpec = "$gitUrl@v$cleanVer"
+    $pypiSpec = "ramllm==$Version"
+} else {
+    $gitSpec = $gitUrl
+    $pypiSpec = "ramllm"
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
     Write-Host "Installing RAMLLM with uv tool..."
-    uv tool install --force $pkgSpec
+    uv tool install --force $pypiSpec 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Package not found on PyPI, installing directly from GitHub repository..." -ForegroundColor Yellow
+        uv tool install --force $gitSpec
+    }
 } elseif (Get-Command pipx -ErrorAction SilentlyContinue) {
     Write-Host "Installing RAMLLM with pipx..."
-    pipx install --force $pkgSpec
+    pipx install --force $pypiSpec 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Package not found on PyPI, installing directly from GitHub repository..." -ForegroundColor Yellow
+        pipx install --force $gitSpec
+    }
 } elseif (Get-Command python -ErrorAction SilentlyContinue) {
     Write-Host "uv/pipx not found. Falling back to pip install --user..."
-    python -m pip install --user --upgrade $pkgSpec
+    python -m pip install --user --upgrade $pypiSpec 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Package not found on PyPI, installing directly from GitHub repository..." -ForegroundColor Yellow
+        python -m pip install --user --upgrade $gitSpec
+    }
 } else {
     Write-Error "Neither uv, pipx, nor python were found. Please install uv (https://astral.sh/uv) and retry."
     exit 1

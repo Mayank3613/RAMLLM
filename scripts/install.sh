@@ -87,23 +87,37 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # 2. Install ramllm via tool manager
-PKG_SPEC="ramllm"
+GIT_URL="git+https://github.com/Mayank3613/RAMLLM.git"
 if [ -n "$TARGET_VERSION" ]; then
-    PKG_SPEC="ramllm==$TARGET_VERSION"
+    VERSION_TAG="v${TARGET_VERSION#v}"
+    GIT_SPEC="${GIT_URL}@${VERSION_TAG}"
+    PYPI_SPEC="ramllm==$TARGET_VERSION"
+else
+    GIT_SPEC="$GIT_URL"
+    PYPI_SPEC="ramllm"
 fi
 
 INSTALLED=0
 if command -v uv >/dev/null 2>&1; then
     echo "Installing RAMLLM with uv tool..."
-    uv tool install --force "$PKG_SPEC"
+    if ! uv tool install --force "$PYPI_SPEC" 2>/dev/null; then
+        echo "Note: Package '$PYPI_SPEC' not on PyPI registry; installing directly from GitHub repository..."
+        uv tool install --force "$GIT_SPEC"
+    fi
     INSTALLED=1
 elif command -v pipx >/dev/null 2>&1; then
     echo "Installing RAMLLM with pipx..."
-    pipx install --force "$PKG_SPEC"
+    if ! pipx install --force "$PYPI_SPEC" 2>/dev/null; then
+        echo "Note: Package '$PYPI_SPEC' not on PyPI registry; installing directly from GitHub repository..."
+        pipx install --force "$GIT_SPEC"
+    fi
     INSTALLED=1
 elif command -v python3 >/dev/null 2>&1; then
     echo "Warning: uv or pipx not found. Falling back to pip install --user..."
-    python3 -m pip install --user --upgrade "$PKG_SPEC"
+    if ! python3 -m pip install --user --upgrade "$PYPI_SPEC" 2>/dev/null; then
+        echo "Note: Package '$PYPI_SPEC' not on PyPI registry; installing directly from GitHub repository..."
+        python3 -m pip install --user --upgrade "$GIT_SPEC"
+    fi
     INSTALLED=1
 else
     echo "Error: Neither uv, pipx, nor python3 were found on your system." >&2

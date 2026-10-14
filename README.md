@@ -67,14 +67,14 @@ irm https://raw.githubusercontent.com/Mayank3613/RAMLLM/main/scripts/install.ps1
 
 ### Or using Python Package Managers
 ```bash
-# Fastest & recommended: uv tool
-uv tool install ramllm
+# Recommended: Install directly from GitHub with uv tool
+uv tool install git+https://github.com/Mayank3613/RAMLLM.git
 
 # Or with pipx
-pipx install ramllm
+pipx install git+https://github.com/Mayank3613/RAMLLM.git
 
-# Or with Homebrew (macOS / Linux)
-brew install Mayank3613/tap/ramllm
+# Or from a local repository clone
+uv tool install . --force
 ```
 
 ---

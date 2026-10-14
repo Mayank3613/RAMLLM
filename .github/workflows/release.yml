@@ -126,3 +126,23 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [build-package]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        continue-on-error: true
+        with:
+          skip-existing: true
+
