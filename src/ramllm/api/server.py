@@ -114,7 +114,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 api_app = FastAPI(
     title="RAMLLM Server",
     description="OpenAI-compatible LLM inference server with strict RAM/VRAM budget governor.",
-    version="0.1.0",
+    version="0.1.1",
     lifespan=lifespan,
 )
 
