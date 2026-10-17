@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from tests.fixtures.make_gguf import create_tiny_dense_gguf
@@ -240,3 +241,27 @@ def test_cli_plan_cross_check_fit(tmp_path: Path) -> None:
     assert "llama.cpp -fit Cross-Check Comparison" in res.stdout
     assert "GPU Offload" in res.stdout
     assert "Speed Forecast" in res.stdout
+
+
+def test_cli_serve_loopback_protection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify CLI serve refuses binding to 0.0.0.0 without API key or --insecure flag."""
+    model_path = tmp_path / "tiny_serve_sec.gguf"
+    create_tiny_dense_gguf(model_path)
+
+    # 1. 0.0.0.0 without key and without --insecure must fail upfront
+    res_refuse = runner.invoke(app, ["serve", str(model_path), "--host", "0.0.0.0"])
+    assert res_refuse.exit_code == 1
+    assert "Refusing to bind to non-loopback" in res_refuse.output
+
+    # 2. Mock uvicorn.run and create_app so foreground server does not block event loop
+    mock_run = MagicMock()
+    import uvicorn
+
+    monkeypatch.setattr(uvicorn, "run", mock_run)
+    monkeypatch.setattr("ramllm.api.server.create_app", lambda *args, **kwargs: MagicMock())
+
+    res_insecure = runner.invoke(
+        app, ["serve", str(model_path), "--host", "0.0.0.0", "--insecure", "--port", "9999"]
+    )
+    assert "Refusing to bind to non-loopback" not in res_insecure.output
+    assert mock_run.called

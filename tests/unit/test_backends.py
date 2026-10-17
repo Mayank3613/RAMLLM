@@ -127,3 +127,37 @@ def test_detect_llamacpp_with_fit(monkeypatch) -> None:
     assert install is not None
     assert install.capabilities.supports_fit is True
     assert install.capabilities.has_fit_params is True
+
+
+def test_loopback_port_helpers_and_conflict_detection() -> None:
+    """Verify loopback ephemeral port selection and port conflict prevention."""
+    import socket
+
+    import pytest
+
+    from ramllm.backends.llamacpp.launcher import (
+        find_free_loopback_port,
+        is_port_in_use,
+        launch_llamacpp_server,
+    )
+
+    port = find_free_loopback_port()
+    assert 1024 <= port <= 65535
+    assert not is_port_in_use(port)
+
+    # Bind a socket to that port
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", port))
+    srv.listen(1)
+
+    try:
+        assert is_port_in_use(port)
+
+        # Attempting to launch llama-server on occupied port must fail immediately
+        plan = _make_sample_plan()
+        with pytest.raises(RuntimeError, match="already in use"):
+            launch_llamacpp_server(["dummy"], plan=plan, port=port)
+    finally:
+        srv.close()
+
+    assert not is_port_in_use(port)

@@ -1,9 +1,13 @@
 """Process launcher, buffer size log parser, and health monitoring for llama-server."""
 
+import atexit
 import re
+import socket
 import subprocess
+import sys
 import threading
 import time
+from typing import Any
 
 import httpx
 import psutil
@@ -61,6 +65,41 @@ class ProcessLogMonitor:
                     self.compute_buffer_bytes = bytes_val
 
 
+_ACTIVE_PROCESSES: set[subprocess.Popen[str]] = set()
+
+
+def _cleanup_orphaned_processes() -> None:
+    """atexit hook to ensure all managed llama-server child processes are terminated."""
+    for p in list(_ACTIVE_PROCESSES):
+        if p.poll() is None:
+            try:
+                p.terminate()
+                p.wait(timeout=1.5)
+            except Exception:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+
+
+atexit.register(_cleanup_orphaned_processes)
+
+
+def find_free_loopback_port() -> int:
+    """Find an available ephemeral port bound strictly to IPv4 loopback."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        s.listen(1)
+        return int(s.getsockname()[1])
+
+
+def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
+    """Check if the given port is already actively listening on host."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.3)
+        return s.connect_ex((host, port)) == 0
+
+
 def launch_llamacpp_server(
     cmd: list[str],
     plan: ExecutionPlan,
@@ -68,13 +107,24 @@ def launch_llamacpp_server(
     timeout_s: float = 30.0,
 ) -> BackendProcess:
     """Launch llama-server, wait for health endpoint, and return BackendProcess handle."""
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
+    if is_port_in_use(port, "127.0.0.1"):
+        raise RuntimeError(
+            f"Cannot launch llama-server: Port {port} on 127.0.0.1 is already in use by another process."
+        )
+
+    popen_kwargs: dict[str, Any] = {
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT,
+        "text": True,
+        "bufsize": 1,
+    }
+    if sys.platform == "win32":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(cmd, **popen_kwargs)
+    _ACTIVE_PROCESSES.add(proc)
 
     monitor = ProcessLogMonitor(proc)
     health_url = f"http://127.0.0.1:{port}/health"
@@ -102,6 +152,7 @@ def launch_llamacpp_server(
         time.sleep(0.3)
 
     if not healthy:
+        _ACTIVE_PROCESSES.discard(proc)
         proc.terminate()
         raise TimeoutError(f"llama-server failed to become healthy within {timeout_s}s.")
 

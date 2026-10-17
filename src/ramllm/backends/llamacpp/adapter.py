@@ -68,8 +68,31 @@ class LlamaCppAdapter(BackendAdapter):
 
     def stop(self, proc: BackendProcess) -> None:
         if proc.process and proc.process.poll() is None:
-            proc.process.terminate()
             try:
-                proc.process.wait(timeout=3)
+                from ramllm.backends.llamacpp.launcher import _ACTIVE_PROCESSES
+
+                _ACTIVE_PROCESSES.discard(proc.process)
             except Exception:
-                proc.process.kill()
+                pass
+
+            try:
+                p = psutil.Process(proc.pid)
+                children = p.children(recursive=True)
+                for child in children:
+                    try:
+                        child.terminate()
+                    except Exception:
+                        pass
+                proc.process.terminate()
+                _, alive = psutil.wait_procs(children + [p], timeout=2.0)
+                for a in alive:
+                    try:
+                        a.kill()
+                    except Exception:
+                        pass
+            except Exception:
+                try:
+                    proc.process.terminate()
+                    proc.process.wait(timeout=2.0)
+                except Exception:
+                    proc.process.kill()

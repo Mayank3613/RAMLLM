@@ -1,6 +1,9 @@
 """Explicit, resumable model downloading with SHA-256 verification (Offline-First)."""
 
 import hashlib
+import logging
+import os
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlparse
@@ -8,6 +11,8 @@ from urllib.parse import urlparse
 import httpx
 
 from ramllm.registry.catalog import REGISTRY_DIR, add_model
+
+logger = logging.getLogger("ramllm.registry")
 
 
 def resolve_model_url(target: str) -> tuple[str, str]:
@@ -19,7 +24,9 @@ def resolve_model_url(target: str) -> tuple[str, str]:
     """
     if target.startswith("http://") or target.startswith("https://"):
         parsed = urlparse(target)
-        filename = Path(parsed.path).name
+        raw_name = Path(parsed.path).name
+        # Sanitize against path traversal or embedded separators
+        filename = Path(raw_name).name.replace("..", "").replace("/", "").replace(chr(92), "")
         if not filename.endswith(".gguf"):
             filename = f"{filename}.gguf"
         return target, filename
@@ -63,8 +70,28 @@ def pull_model(
     models_dir = Path(dest_dir).resolve() if dest_dir else (REGISTRY_DIR / "models")
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    dest_path = models_dir / filename
+    # Security: Validate filename against path traversal
+    if (
+        not filename
+        or ".." in filename
+        or "/" in filename
+        or chr(92) in filename
+        or chr(0) in filename
+    ):
+        raise ValueError(f"Unsafe model filename '{filename}': Potential path traversal detected.")
+
+    dest_path = (models_dir / filename).resolve()
+    if not dest_path.is_relative_to(models_dir) or dest_path.parent != models_dir:
+        raise ValueError(f"Unsafe destination path for '{filename}': Path traversal detected.")
+
     part_path = models_dir / f"{filename}.part"
+
+    # Security: Warn loudly if no cryptographic integrity hash is provided
+    if not expected_sha256:
+        logger.warning(
+            "Security Notice: No SHA-256 integrity hash provided for '%s'. Download cannot be cryptographically verified.",
+            filename,
+        )
 
     # Check for existing completed file
     if dest_path.exists():
@@ -83,7 +110,25 @@ def pull_model(
     existing_bytes = part_path.stat().st_size if part_path.exists() else 0
     headers = {"Range": f"bytes={existing_bytes}-"} if existing_bytes > 0 else {}
 
-    http_client = client or httpx.Client(follow_redirects=True, timeout=120.0)
+    # Support HF_TOKEN without leaking to logs or exceptions
+    hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    if hf_token and "huggingface.co" in url.lower():
+        headers["Authorization"] = f"Bearer {hf_token}"
+
+    def _check_redirect(resp: httpx.Response) -> None:
+        if resp.is_redirect:
+            loc = resp.headers.get("location", "")
+            if loc.startswith("http://") and str(resp.url).startswith("https://"):
+                raise ValueError(
+                    "Insecure redirect rejected: HTTPS to HTTP downgrade is forbidden."
+                )
+
+    http_client = client or httpx.Client(
+        follow_redirects=True,
+        max_redirects=5,
+        timeout=120.0,
+        event_hooks={"response": [_check_redirect]},
+    )
     should_close_client = client is None
 
     try:
@@ -97,6 +142,21 @@ def pull_model(
             total_bytes = int(resp.headers.get("content-length", 0))
             if is_resumed:
                 total_bytes += existing_bytes
+
+            # Preflight disk space verification (requires file size * 1.15 headroom)
+            if total_bytes > 0:
+                needed_bytes = int(total_bytes * 1.15)
+                try:
+                    free_bytes = shutil.disk_usage(models_dir).free
+                    if free_bytes < needed_bytes:
+                        needed_gb = needed_bytes / (1024**3)
+                        free_gb = free_bytes / (1024**3)
+                        raise ValueError(
+                            f"Insufficient disk space on {models_dir}: {needed_gb:.2f} GB required "
+                            f"(including 15% safety buffer), but only {free_gb:.2f} GB available."
+                        )
+                except OSError:
+                    pass
 
             file_mode = "ab" if is_resumed else "wb"
             downloaded = existing_bytes if is_resumed else 0

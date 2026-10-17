@@ -203,3 +203,28 @@ def test_compute_buffer_scaling() -> None:
     # Scaled with ubatch=2048
     buf2048 = estimate_compute_buffer_bytes(4096, hidden_size=4096, ubatch_size=2048)
     assert buf2048 > buf512
+
+
+def test_analyze_gguf_security_guards(tmp_path: Path) -> None:
+    """Verify strict security validation against malicious, non-existent, and malformed files."""
+    # 1. Non-existent file
+    with pytest.raises(FileNotFoundError, match="Model file not found"):
+        analyze_gguf(tmp_path / "does_not_exist.gguf")
+
+    # 2. File too small (<16 bytes)
+    too_small = tmp_path / "too_small.gguf"
+    too_small.write_bytes(b"GGUF123")
+    with pytest.raises(ValueError, match="too small"):
+        analyze_gguf(too_small)
+
+    # 3. Invalid magic bytes
+    bad_magic = tmp_path / "bad_magic.gguf"
+    bad_magic.write_bytes(b"NOTG" + b"0" * 20)
+    with pytest.raises(ValueError, match="Invalid magic header"):
+        analyze_gguf(bad_magic)
+
+    # 4. Target is a directory
+    dir_path = tmp_path / "a_directory.gguf"
+    dir_path.mkdir()
+    with pytest.raises(ValueError, match="not a regular file"):
+        analyze_gguf(dir_path)

@@ -3,6 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from tests.fixtures.make_gguf import create_tiny_dense_gguf
 
 from ramllm.registry.catalog import (
@@ -107,3 +108,57 @@ def test_pull_model_mock_http(tmp_path: Path) -> None:
         assert path.read_bytes() == dummy_content
     finally:
         dl_mod.add_model = original_add
+
+
+def test_pull_model_security_guards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify path traversal prevention, disk space preflight, and SHA-256 warning."""
+    dest_dir = tmp_path / "models"
+
+    # 1. Path traversal via target
+    with pytest.raises(ValueError, match="path traversal"):
+        pull_model("org/repo:../../etc/passwd", dest_dir=dest_dir)
+
+    # 2. Insufficient disk space preflight check
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    # Pretend model is 100 GB
+    mock_response.headers = {"content-length": str(100 * 1024**3)}
+    mock_client = MagicMock()
+    mock_client.stream.return_value.__enter__.return_value = mock_response
+
+    # Force shutil.disk_usage to return only 1 GB free
+    from collections import namedtuple
+
+    Usage = namedtuple("Usage", ["total", "used", "free"])
+    monkeypatch.setattr(
+        "shutil.disk_usage", lambda p: Usage(100 * 1024**3, 99 * 1024**3, 1 * 1024**3)
+    )
+
+    with pytest.raises(ValueError, match="Insufficient disk space"):
+        pull_model("org/repo:big_model.gguf", dest_dir=dest_dir, client=mock_client)
+
+    # 3. Missing SHA-256 warning
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        # We test with a small mock
+        mock_response.headers = {"content-length": "100"}
+        mock_response.iter_bytes.return_value = [b"data"]
+        monkeypatch.setattr(
+            "shutil.disk_usage", lambda p: Usage(100 * 1024**3, 10 * 1024**3, 90 * 1024**3)
+        )
+        import ramllm.registry.download as dl_mod
+
+        orig_add = dl_mod.add_model
+        dl_mod.add_model = MagicMock()
+        try:
+            pull_model(
+                "https://example.com/small_model.gguf", dest_dir=dest_dir, client=mock_client
+            )
+            assert any(
+                "No SHA-256 integrity hash provided" in rec.message for rec in caplog.records
+            )
+        finally:
+            dl_mod.add_model = orig_add

@@ -1,7 +1,8 @@
 """FastAPI server providing OpenAI-compatible endpoints and RAMLLM extensions."""
 
 import asyncio
-from collections.abc import AsyncGenerator
+import os
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -47,6 +48,8 @@ class ServerState:
         self.replan_pending: bool = False
         self.auto_retry: bool = True
         self.max_retries: int = 3
+        self.api_key: str | None = None
+        self.cors_origins: list[str] = []
 
 
 state = ServerState()
@@ -117,6 +120,63 @@ api_app = FastAPI(
     version="0.1.1",
     lifespan=lifespan,
 )
+
+
+@api_app.middleware("http")
+async def security_and_cors_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Security middleware enforcing API key authentication and CORS policy."""
+    origin = request.headers.get("origin")
+    is_allowed_origin = bool(
+        origin
+        and state.cors_origins
+        and ("*" in state.cors_origins or origin in state.cors_origins)
+    )
+
+    # Handle CORS OPTIONS preflight
+    if request.method == "OPTIONS" and origin and is_allowed_origin:
+        res = Response(status_code=204)
+        res.headers["Access-Control-Allow-Origin"] = origin
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        res.headers["Access-Control-Allow-Headers"] = "*"
+        res.headers["Access-Control-Allow-Credentials"] = "true"
+        return res
+
+    # Check authentication if API key is configured
+    if state.api_key:
+        path = request.url.path
+        if path not in ("/healthz", "/docs", "/openapi.json", "/redoc"):
+            auth_hdr = request.headers.get("Authorization", "")
+            key_hdr = request.headers.get("X-API-Key", "")
+            token = ""
+            if auth_hdr.startswith("Bearer "):
+                token = auth_hdr[7:].strip()
+            elif key_hdr:
+                token = key_hdr.strip()
+
+            if not token or token != state.api_key:
+                err_resp = JSONResponse(
+                    status_code=401,
+                    content={
+                        "error": {
+                            "message": "Invalid or missing API key.",
+                            "type": "authentication_error",
+                            "code": 401,
+                        }
+                    },
+                )
+                if is_allowed_origin and origin:
+                    err_resp.headers["Access-Control-Allow-Origin"] = origin
+                return err_resp
+
+    response = await call_next(request)
+
+    if is_allowed_origin and origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
 
 
 @api_app.get("/healthz")
@@ -233,7 +293,11 @@ async def chat_completions(request: Request) -> Response:
             try:
                 async with client.stream("POST", target_url, json=body) as resp:
                     async for chunk in resp.aiter_bytes():
+                        if await request.is_disconnected():
+                            break
                         yield chunk
+            except (asyncio.CancelledError, GeneratorExit):
+                pass
             finally:
                 await client.aclose()
 
@@ -261,7 +325,11 @@ async def completions(request: Request) -> Response:
             try:
                 async with client.stream("POST", target_url, json=body) as resp:
                     async for chunk in resp.aiter_bytes():
+                        if await request.is_disconnected():
+                            break
                         yield chunk
+            except (asyncio.CancelledError, GeneratorExit):
+                pass
             finally:
                 await client.aclose()
 
@@ -287,6 +355,8 @@ def create_app(
     max_retries: int = 3,
     min_tps: float | None = None,
     ubatch: int = 512,
+    api_key: str | None = None,
+    cors_origins: list[str] | None = None,
 ) -> FastAPI:
     """Configure server state and return FastAPI application instance."""
     state.model_path = model_path
@@ -307,4 +377,6 @@ def create_app(
         min_tps=min_tps,
         ubatch_size=ubatch,
     )
+    state.api_key = api_key or os.environ.get("RAMLLM_API_KEY")
+    state.cors_origins = cors_origins or []
     return api_app

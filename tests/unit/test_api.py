@@ -99,3 +99,71 @@ def test_ramllm_replan_endpoint(tmp_path: Path) -> None:
         state.backend_process = None
         state.active_plan = None
         state.model_path = ""
+
+
+def test_api_key_authentication() -> None:
+    """Verify that API key is enforced on protected endpoints and healthz remains open."""
+    state.api_key = "secret-ramllm-test-key"
+    try:
+        # /healthz is exempt
+        resp_health = client.get("/healthz")
+        assert resp_health.status_code == 200
+
+        # Protected endpoint without key -> 401
+        resp_unauth = client.get("/v1/models")
+        assert resp_unauth.status_code == 401
+        assert "Invalid or missing API key" in resp_unauth.json()["error"]["message"]
+
+        # Protected endpoint with wrong key -> 401
+        resp_wrong = client.get("/v1/models", headers={"Authorization": "Bearer wrong-key"})
+        assert resp_wrong.status_code == 401
+
+        # Protected endpoint with valid Bearer token -> 200
+        resp_bearer = client.get(
+            "/v1/models",
+            headers={"Authorization": "Bearer secret-ramllm-test-key"},
+        )
+        assert resp_bearer.status_code == 200
+
+        # Protected endpoint with valid X-API-Key header -> 200
+        resp_xkey = client.get(
+            "/v1/models",
+            headers={"X-API-Key": "secret-ramllm-test-key"},
+        )
+        assert resp_xkey.status_code == 200
+    finally:
+        state.api_key = None
+
+
+def test_cors_middleware() -> None:
+    """Verify configurable CORS preflight and response headers."""
+    state.cors_origins = ["http://localhost:3000", "https://myclient.local"]
+    try:
+        # Preflight OPTIONS request
+        resp_opt = client.options(
+            "/v1/models",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert resp_opt.status_code == 204
+        assert resp_opt.headers.get("Access-Control-Allow-Origin") == "http://localhost:3000"
+
+        # Normal GET with Origin
+        resp_get = client.get(
+            "/healthz",
+            headers={"Origin": "https://myclient.local"},
+        )
+        assert resp_get.status_code == 200
+        assert resp_get.headers.get("Access-Control-Allow-Origin") == "https://myclient.local"
+
+        # Disallowed origin
+        resp_disallowed = client.get(
+            "/healthz",
+            headers={"Origin": "https://malicious-site.com"},
+        )
+        assert resp_disallowed.status_code == 200
+        assert "Access-Control-Allow-Origin" not in resp_disallowed.headers
+    finally:
+        state.cors_origins = []

@@ -1,7 +1,6 @@
 """Serve command for running RAMLLM API servers in foreground or detached background."""
 
 import os
-import secrets
 import socket
 import subprocess
 import sys
@@ -112,6 +111,20 @@ def serve_command(
         str | None,
         typer.Option("--engine-id", hidden=True, help="Internal explicit engine ID for daemon"),
     ] = None,
+    insecure: Annotated[
+        bool,
+        typer.Option(
+            "--insecure",
+            help="Allow binding to non-loopback interface (0.0.0.0) without an API key",
+        ),
+    ] = False,
+    cors_origins: Annotated[
+        str | None,
+        typer.Option(
+            "--cors-origins",
+            help="Comma-separated allowed CORS origins (e.g. 'http://localhost:3000')",
+        ),
+    ] = None,
 ) -> None:
     """Start OpenAI-compatible API server with active memory governor."""
     console = get_console()
@@ -143,15 +156,27 @@ def serve_command(
             f"[yellow]Notice: Port {port} is occupied. Using next free port: {actual_port}[/yellow]"
         )
 
-    # Check network exposure
-    active_api_key = api_key
-    if host in ("0.0.0.0", "::"):
-        console.print(
-            "[bold yellow][!] Warning: Binding to 0.0.0.0 exposes the API to your local network.[/bold yellow]"
-        )
-        if not active_api_key:
-            active_api_key = secrets.token_hex(16)
-            console.print(f"[cyan]Generated access API key:[/cyan] [bold]{active_api_key}[/bold]")
+    # Check network exposure and enforce loopback policy
+    active_api_key = api_key or os.environ.get("RAMLLM_API_KEY")
+    is_loopback = host in ("127.0.0.1", "localhost", "::1")
+    if not is_loopback:
+        if not active_api_key and not insecure:
+            print_error(
+                f"Security Error: Refusing to bind to non-loopback interface '{host}' without an API key.\n"
+                "Pass an API key with '--api-key <KEY>', set RAMLLM_API_KEY, or pass '--insecure' to proceed."
+            )
+            raise typer.Exit(code=1)
+        elif not active_api_key and insecure:
+            console.print(
+                f"[bold red][!] SECURITY WARNING: Binding to {host} without an API key (--insecure enabled). "
+                "Anyone on your network can execute inference requests.[/bold red]"
+            )
+        elif active_api_key:
+            console.print(
+                f"[bold yellow][!] Notice: Binding to {host} with API key authentication enabled.[/bold yellow]"
+            )
+
+    cors_list = [o.strip() for o in cors_origins.split(",") if o.strip()] if cors_origins else []
 
     # 3. Memory Concurrency Warning
     running_instances = list_running_engines(clean_stale=True)
@@ -190,6 +215,10 @@ def serve_command(
             child_cmd.extend(["--gpus", gpus])
         if active_api_key:
             child_cmd.extend(["--api-key", active_api_key])
+        if insecure:
+            child_cmd.append("--insecure")
+        if cors_origins:
+            child_cmd.extend(["--cors-origins", cors_origins])
         if min_tps is not None:
             child_cmd.extend(["--min-tps", str(min_tps)])
         if ubatch != 512:
@@ -291,6 +320,8 @@ def serve_command(
         max_retries=max_retries,
         min_tps=min_tps,
         ubatch=ubatch,
+        api_key=active_api_key,
+        cors_origins=cors_list,
     )
 
     # Register in process table

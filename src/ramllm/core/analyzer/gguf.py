@@ -12,6 +12,14 @@ from ramllm.core.schemas import ModelInfo
 
 LAYER_REGEX = re.compile(r"blk\.(\d+)\.")
 
+# Security bounds to guard against malicious/corrupted GGUF metadata
+MAX_TENSORS = 50_000
+MAX_LAYERS = 2_048
+MAX_HIDDEN_SIZE = 1_000_000
+MAX_HEADS = 65_536
+MAX_CONTEXT_LENGTH = 16_777_216
+MAX_STR_LEN = 256
+
 
 def _get_field_val(reader: gguf.GGUFReader, key: str, default: Any = None) -> Any:
     field = reader.get_field(key)
@@ -65,25 +73,79 @@ def analyze_gguf(file_path: Path | str) -> ModelInfo:
     """Analyze a GGUF model file and return its ModelInfo structure.
 
     Reads only headers and metadata; never loads tensor array weights into memory.
+    Enforces strict security bounds on header sizes and metadata values to prevent DoS.
     """
-    path_str = str(Path(file_path).resolve())
-    reader = gguf.GGUFReader(path_str)
+    path = Path(file_path).resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"Model file not found: {path}")
+    if not path.is_file():
+        raise ValueError(f"Target path is not a regular file: {path}")
+    if path.stat().st_size < 16:
+        raise ValueError(
+            f"Corrupted or invalid GGUF file '{path}': file size ({path.stat().st_size} bytes) is too small to contain a valid header."
+        )
+
+    with open(path, "rb") as f:
+        magic = f.read(4)
+    if magic != b"GGUF":
+        raise ValueError(
+            f"Invalid GGUF file '{path}': Invalid magic header ({magic!r} != b'GGUF')."
+        )
+
+    path_str = str(path)
+    try:
+        reader = gguf.GGUFReader(path_str)
+    except Exception as e:
+        raise ValueError(f"Failed to parse GGUF header for '{path}': {e}") from e
 
     arch = _get_field_val(reader, "general.architecture", "llama")
     if isinstance(arch, bytes):
         arch = arch.decode("utf-8")
     arch = str(arch).lower()
+    if not arch or len(arch) > MAX_STR_LEN:
+        raise ValueError(
+            f"Corrupted GGUF: architecture string is invalid or too long ({len(arch)} chars)."
+        )
 
     n_layers = int(_get_field_val(reader, f"{arch}.block_count", 32))
+    if n_layers < 1 or n_layers > MAX_LAYERS:
+        raise ValueError(
+            f"Corrupted GGUF: layer count {n_layers} out of valid range [1, {MAX_LAYERS}]."
+        )
+
     hidden_size = int(_get_field_val(reader, f"{arch}.embedding_length", 4096))
+    if hidden_size < 1 or hidden_size > MAX_HIDDEN_SIZE:
+        raise ValueError(
+            f"Corrupted GGUF: hidden size {hidden_size} out of valid range [1, {MAX_HIDDEN_SIZE}]."
+        )
+
     n_heads = int(_get_field_val(reader, f"{arch}.attention.head_count", 32))
+    if n_heads < 1 or n_heads > MAX_HEADS:
+        raise ValueError(
+            f"Corrupted GGUF: head count {n_heads} out of valid range [1, {MAX_HEADS}]."
+        )
+
     n_kv_heads = int(_get_field_val(reader, f"{arch}.attention.head_count_kv", n_heads))
+    if n_kv_heads < 1 or n_kv_heads > MAX_HEADS:
+        raise ValueError(
+            f"Corrupted GGUF: KV head count {n_kv_heads} out of valid range [1, {MAX_HEADS}]."
+        )
 
     head_dim_val = _get_field_val(reader, f"{arch}.attention.key_length")
     head_dim = int(head_dim_val) if head_dim_val else (hidden_size // n_heads)
 
     ctx_max = int(_get_field_val(reader, f"{arch}.context_length", 4096))
+    if ctx_max < 1 or ctx_max > MAX_CONTEXT_LENGTH:
+        raise ValueError(
+            f"Corrupted GGUF: context length {ctx_max} out of valid range [1, {MAX_CONTEXT_LENGTH}]."
+        )
+
     quant_str = _extract_quant_string(reader)
+
+    if len(reader.tensors) > MAX_TENSORS:
+        raise ValueError(
+            f"Corrupted or malicious GGUF: tensor count {len(reader.tensors)} exceeds maximum threshold of {MAX_TENSORS}."
+        )
 
     # Attention / KV architecture metadata
     sw_size = _get_field_val(reader, f"{arch}.attention.sliding_window_size")
@@ -115,6 +177,8 @@ def analyze_gguf(file_path: Path | str) -> ModelInfo:
     total_weight_bytes = 0
 
     for t in reader.tensors:
+        if len(t.shape) > 8 or any(dim < 0 for dim in t.shape):
+            raise ValueError(f"Corrupted GGUF: tensor '{t.name}' has invalid shape {t.shape}.")
         num_elems = math.prod(t.shape)
         total_params += num_elems
         n_bytes = int(t.n_bytes)
