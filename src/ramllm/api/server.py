@@ -285,6 +285,8 @@ def create_app(
     hw_profile: HardwareProfile | None = None,
     auto_retry: bool = True,
     max_retries: int = 3,
+    min_tps: float | None = None,
+    ubatch: int = 512,
 ) -> FastAPI:
     """Configure server state and return FastAPI application instance."""
     state.model_path = model_path
@@ -302,5 +304,7 @@ def create_app(
         min_context=context,
         target_context=context,
         gpu_indices=gpu_indices,
+        min_tps=min_tps,
+        ubatch_size=ubatch,
     )
     return api_app

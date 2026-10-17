@@ -6,13 +6,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from ramllm.core.profiler.cpu import get_cpu_info
+from ramllm.core.profiler.cpu import estimate_cpu_gflops, get_cpu_info
 from ramllm.core.profiler.disk import detect_disk_kind, measure_disk_read_bandwidth
 from ramllm.core.profiler.gpu_amd import probe_amd_gpus
 from ramllm.core.profiler.gpu_apple import probe_apple_gpu
 from ramllm.core.profiler.gpu_nvidia import probe_nvidia_gpus
 from ramllm.core.profiler.gpu_vulkan import probe_vulkan_gpus
-from ramllm.core.profiler.memory import get_memory_info, measure_ram_bandwidth
+from ramllm.core.profiler.memory import (
+    get_memory_info,
+    measure_ram_bandwidth,
+    measure_ram_bandwidth_memcpy,
+)
 from ramllm.core.profiler.pcie import estimate_pcie_bandwidth
 from ramllm.core.schemas import GpuInfo, HardwareProfile
 
@@ -62,12 +66,18 @@ def probe_hardware(
     os_type = _get_os()
     cpu_name, phys_cores, log_cores, cpu_feats = get_cpu_info()
 
-    # Bandwidths
+    # Compute and memory bandwidths
+    cpu_gflops = estimate_cpu_gflops(phys_cores, log_cores, cpu_feats)
     if quick:
         ram_bw = 35.0 * 1024**3
+        ram_memcpy_bw: float | None = 30.0 * 1024**3
         disk_bw = 3.0 * 1024**3
     else:
         ram_bw = measure_ram_bandwidth()
+        try:
+            ram_memcpy_bw = measure_ram_bandwidth_memcpy()
+        except Exception:
+            ram_memcpy_bw = None
         disk_bw = measure_disk_read_bandwidth(model_dir)
 
     disk_type = detect_disk_kind(model_dir or Path.home())
@@ -103,6 +113,8 @@ def probe_hardware(
         ram_available_bytes=ram_avail,
         swap_total_bytes=swap_total,
         ram_bandwidth_bytes_s=ram_bw,
+        ram_bandwidth_memcpy_bytes_s=ram_memcpy_bw,
+        cpu_effective_gflops=cpu_gflops,
         disk_read_bandwidth_bytes_s=disk_bw,
         disk_kind=disk_type,
         gpus=updated_gpus,

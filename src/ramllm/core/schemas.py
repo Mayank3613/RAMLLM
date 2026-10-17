@@ -42,6 +42,8 @@ class HardwareProfile(BaseModel):
     ram_available_bytes: int
     swap_total_bytes: int
     ram_bandwidth_bytes_s: float
+    ram_bandwidth_memcpy_bytes_s: float | None = None
+    cpu_effective_gflops: float | None = None
     disk_read_bandwidth_bytes_s: float
     disk_kind: Literal["nvme", "ssd", "hdd", "unknown"]
     gpus: list[GpuInfo] = Field(default_factory=list)
@@ -71,6 +73,10 @@ class ModelInfo(BaseModel):
     n_experts_used: int | None = None
     expert_bytes_per_layer: list[int] | None = None
     shared_expert_bytes_per_layer: list[int] | None = None
+    sliding_window_size: int | None = None
+    kv_lora_rank: int | None = None
+    is_hybrid_ssm: bool = False
+    ssm_d_state: int | None = None
 
 
 class UserRequest(BaseModel):
@@ -90,6 +96,9 @@ class UserRequest(BaseModel):
     allow_kv_quant: bool = True
     use_gpu: bool = True
     gpu_indices: list[int] | None = None
+    min_tps: float | None = None
+    ubatch_size: int = 512
+    n_parallel_slots: int = 1
 
 
 class Placement(BaseModel):

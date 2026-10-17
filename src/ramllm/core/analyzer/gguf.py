@@ -85,6 +85,19 @@ def analyze_gguf(file_path: Path | str) -> ModelInfo:
     ctx_max = int(_get_field_val(reader, f"{arch}.context_length", 4096))
     quant_str = _extract_quant_string(reader)
 
+    # Attention / KV architecture metadata
+    sw_size = _get_field_val(reader, f"{arch}.attention.sliding_window_size")
+    if sw_size is None:
+        sw_size = _get_field_val(reader, f"{arch}.sliding_window")
+    sw_size_int = int(sw_size) if sw_size is not None and int(sw_size) > 0 else None
+
+    mla_rank = _get_field_val(reader, f"{arch}.attention.kv_lora_rank")
+    mla_rank_int = int(mla_rank) if mla_rank is not None and int(mla_rank) > 0 else None
+
+    ssm_state = _get_field_val(reader, f"{arch}.ssm.d_state")
+    is_ssm = arch in ("mamba", "jamba") or ssm_state is not None
+    ssm_state_int = int(ssm_state) if ssm_state is not None else (16 if is_ssm else None)
+
     # MoE metadata
     n_experts = _get_field_val(reader, f"{arch}.expert_count")
     n_experts_used = _get_field_val(reader, f"{arch}.expert_used_count")
@@ -144,4 +157,8 @@ def analyze_gguf(file_path: Path | str) -> ModelInfo:
         n_experts_used=n_exp_used_int,
         expert_bytes_per_layer=expert_bytes_per_layer,
         shared_expert_bytes_per_layer=shared_expert_bytes_per_layer,
+        sliding_window_size=sw_size_int,
+        kv_lora_rank=mla_rank_int,
+        is_hybrid_ssm=is_ssm,
+        ssm_d_state=ssm_state_int,
     )

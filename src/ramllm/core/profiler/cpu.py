@@ -59,3 +59,34 @@ def get_cpu_info() -> tuple[str, int, int, list[str]]:
                 cpu_name = "Apple Silicon"
 
     return cpu_name, physical_cores, logical_cores, normalized_features
+
+
+def estimate_cpu_gflops(
+    physical_cores: int,
+    logical_cores: int,
+    features: list[str],
+    calibration_factor: float = 1.0,
+    clock_ghz: float = 3.0,
+) -> float:
+    """Estimate effective CPU decode compute throughput in GFLOPs.
+
+    Derives theoretical peak throughput from physical cores, clock frequency, and SIMD instructions,
+    then applies an empirical GEMV/GEMM CPU efficiency factor (0.65) and calibration multiplier.
+    """
+    cores = max(1, physical_cores)
+    flops_per_cycle = 4.0  # scalar fallback
+
+    feat_set = {f.lower() for f in features}
+    if any("amx" in f for f in feat_set) or any("avx512" in f for f in feat_set):
+        flops_per_cycle = 32.0
+    elif any("avx2" in f for f in feat_set) or any("fma" in f for f in feat_set):
+        flops_per_cycle = 16.0
+    elif any("dotprod" in f for f in feat_set) or any("neon" in f for f in feat_set):
+        flops_per_cycle = 16.0
+    elif any("avx" in f for f in feat_set):
+        flops_per_cycle = 8.0
+
+    theoretical_gflops = cores * clock_ghz * flops_per_cycle
+    # Typical CPU utilization on quantized matrix-vector decode kernels is ~65%
+    effective = theoretical_gflops * 0.65 * max(0.2, min(calibration_factor, 5.0))
+    return round(max(5.0, effective), 1)

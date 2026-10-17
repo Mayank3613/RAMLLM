@@ -2,7 +2,20 @@
 
 from typing import Literal
 
+from pydantic import BaseModel, ConfigDict
+
 from ramllm.core.schemas import HardwareProfile, ModelInfo, UserRequest
+
+
+class SlownessTolerance(BaseModel):
+    """Configurable throughput thresholds for classifying plan feasibility."""
+
+    model_config = ConfigDict(frozen=True)
+
+    min_tok_s: float = 1.0
+    comfortable_tok_s: float = 8.0
+    comfortable_low_tok_s: float = 4.0
+    infeasible_tok_s: float = 0.05
 
 
 def calculate_safety_margins(
@@ -53,17 +66,19 @@ def classify_verdict(
     decode_tok_s_high: float,
     has_disk_reads: bool,
     fits_budget: bool,
+    tolerance: SlownessTolerance | None = None,
 ) -> Literal["COMFORTABLE", "CONSTRAINED", "BATCH_ONLY", "INFEASIBLE"]:
     """Classify execution plan into normative feasibility verdict."""
-    if not fits_budget or decode_tok_s_high < 0.05:
+    tol = tolerance or SlownessTolerance()
+    if not fits_budget or decode_tok_s_high < tol.infeasible_tok_s:
         return "INFEASIBLE"
 
     if has_disk_reads:
-        return "BATCH_ONLY" if decode_tok_s_low < 1.0 else "CONSTRAINED"
+        return "BATCH_ONLY" if decode_tok_s_low < tol.min_tok_s else "CONSTRAINED"
 
-    if decode_tok_s_high >= 8.0 and decode_tok_s_low >= 4.0:
+    if decode_tok_s_high >= tol.comfortable_tok_s and decode_tok_s_low >= tol.comfortable_low_tok_s:
         return "COMFORTABLE"
-    elif decode_tok_s_high >= 1.0:
+    elif decode_tok_s_high >= tol.min_tok_s:
         return "CONSTRAINED"
     else:
         return "BATCH_ONLY"

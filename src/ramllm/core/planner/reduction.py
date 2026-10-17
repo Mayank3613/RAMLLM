@@ -5,7 +5,7 @@ from ramllm.core.analyzer.moe import calculate_moe_working_set_bytes
 from ramllm.core.planner.candidates import _build_backend_args
 from ramllm.core.planner.cost_model import estimate_speed
 from ramllm.core.planner.explain import explain_plan
-from ramllm.core.planner.feasibility import classify_verdict
+from ramllm.core.planner.feasibility import SlownessTolerance, classify_verdict
 from ramllm.core.schemas import (
     ExecutionPlan,
     HardwareProfile,
@@ -243,10 +243,16 @@ def get_reduced_plan(
         expert_placement=new_expert_placement,
     )
 
+    # V-cache quantization requires Flash Attention. On CPU KV, downgrade V to f16.
+    eff_type_v = new_kv_type
+    if new_kv_loc == "cpu" and new_kv_type in ("q8_0", "q4_0"):
+        eff_type_v = "f16"
+        action_notes.append("Downgraded V-cache to f16 (Flash Attention unavailable for CPU KV)")
+
     kv_cfg = KvConfig(
         location=new_kv_loc,
         type_k=new_kv_type,  # type: ignore[arg-type]
-        type_v=new_kv_type,  # type: ignore[arg-type]
+        type_v=eff_type_v,  # type: ignore[arg-type]
         context=new_ctx,
     )
 
@@ -257,10 +263,19 @@ def get_reduced_plan(
         n_kv_heads=model.n_kv_heads,
         head_dim=model.head_dim,
         type_k=new_kv_type,  # type: ignore[arg-type]
-        type_v=new_kv_type,  # type: ignore[arg-type]
+        type_v=eff_type_v,  # type: ignore[arg-type]
+        n_slots=req.n_parallel_slots,
+        sliding_window_size=model.sliding_window_size,
+        kv_lora_rank=model.kv_lora_rank,
+        is_hybrid_ssm=model.is_hybrid_ssm,
+        ssm_d_state=model.ssm_d_state,
     )
     compute_buffer_bytes = estimate_compute_buffer_bytes(
-        new_ctx, batch_size=512, hidden_size=model.hidden_size
+        new_ctx,
+        batch_size=512,
+        hidden_size=model.hidden_size,
+        intermediate_size=int(model.hidden_size * 2.7),
+        ubatch_size=req.ubatch_size,
     )
 
     vram_peak_map: dict[int, int] = {}
@@ -304,6 +319,8 @@ def get_reduced_plan(
         )
         active_cpu_bytes = sum(model.per_layer_bytes[i] for i in cpu_layers)
 
+    num_bounds = 1 if (new_gpu_layers > 0 and cpu_layers) else 0
+    moe_on_cpu = total_layers if new_expert_placement == "cpu" else 0
     speed = estimate_speed(
         hw=hw,
         bytes_gpu=active_gpu_bytes,
@@ -314,10 +331,18 @@ def get_reduced_plan(
         kv_read_bytes_cpu=kv_footprint if new_kv_loc == "cpu" else 0,
         active_params=model.n_params,
         calibration_factor=calib_factor,
+        num_boundaries=num_bounds,
+        hidden_size=model.hidden_size,
+        moe_layers_on_cpu=moe_on_cpu,
     )
 
     fits = ram_peak <= hw.ram_total_bytes
-    verdict = classify_verdict(speed.decode_tok_s_low, speed.decode_tok_s_high, False, fits)
+    slowness_tol = (
+        SlownessTolerance(min_tok_s=req.min_tps) if req.min_tps is not None else SlownessTolerance()
+    )
+    verdict = classify_verdict(
+        speed.decode_tok_s_low, speed.decode_tok_s_high, False, fits, tolerance=slowness_tol
+    )
 
     # Build backend args
     multi_gpu_ts: str | None = None
@@ -333,11 +358,13 @@ def get_reduced_plan(
         ngl=new_gpu_layers,
         ctx=new_ctx,
         type_k=new_kv_type,
-        type_v=new_kv_type,
+        type_v=eff_type_v,
         cpu_moe=new_expert_placement == "cpu",
         no_kv_offload=new_kv_loc == "cpu",
         multi_gpu_ts=multi_gpu_ts,
         main_gpu=primary_gpu_idx if len(gpu_layers_map) > 1 else None,
+        ubatch=req.ubatch_size,
+        n_parallel=req.n_parallel_slots,
     )
 
     expl = explain_plan(model, placement, kv_cfg, mem, speed, total_layers)

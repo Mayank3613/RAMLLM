@@ -234,6 +234,12 @@ def recommend(
     no_kv_quant: Annotated[
         bool, typer.Option("--no-kv-quant", help="Disallow quantized KV cache")
     ] = False,
+    min_tps: Annotated[
+        float | None, typer.Option("--min-tps", help="Minimum tolerable tokens/second threshold")
+    ] = None,
+    ubatch: Annotated[
+        int, typer.Option("--ubatch", help="Micro-batch size for activation buffers")
+    ] = 512,
     as_json: Annotated[bool, typer.Option("--json", help="Output JSON")] = False,
     hw_json: Annotated[
         Path | None, typer.Option("--hw-json", help="Synthetic hardware profile")
@@ -271,6 +277,8 @@ def recommend(
         use_gpu=not cpu_only,
         gpu_indices=gpu_indices,
         allow_kv_quant=allow_kv,
+        min_tps=min_tps,
+        ubatch_size=ubatch,
     )
 
     recs = recommend_models(hw, req)
@@ -345,6 +353,12 @@ def plan(
     no_kv_quant: Annotated[
         bool, typer.Option("--no-kv-quant", help="Disallow quantized KV cache")
     ] = False,
+    min_tps: Annotated[
+        float | None, typer.Option("--min-tps", help="Minimum tolerable tokens/second threshold")
+    ] = None,
+    ubatch: Annotated[
+        int, typer.Option("--ubatch", help="Micro-batch size for activation buffers")
+    ] = 512,
     details: Annotated[
         bool, typer.Option("--details", help="Display full candidate comparison table")
     ] = False,
@@ -395,6 +409,8 @@ def plan(
         use_gpu=not cpu_only,
         gpu_indices=gpu_indices,
         allow_kv_quant=allow_kv,
+        min_tps=min_tps,
+        ubatch_size=ubatch,
     )
 
     plans = create_execution_plans(model_info, hw, req)
@@ -532,6 +548,12 @@ def run(
         str | None, typer.Option("--prompt", "-p", help="Single prompt generation")
     ] = None,
     port: Annotated[int, typer.Option("--port", help="Port for llama-server")] = 8080,
+    min_tps: Annotated[
+        float | None, typer.Option("--min-tps", help="Minimum tolerable tokens/second threshold")
+    ] = None,
+    ubatch: Annotated[
+        int, typer.Option("--ubatch", help="Micro-batch size for activation buffers")
+    ] = 512,
     live: Annotated[bool, typer.Option("--live", help="Monitor memory live with governor")] = False,
     auto_retry: Annotated[
         bool,
@@ -590,6 +612,8 @@ def run(
         target_context=ctx_len,
         preference=pref,
         gpu_indices=gpu_indices,
+        min_tps=min_tps,
+        ubatch_size=ubatch,
     )
 
     plans = create_execution_plans(model_info, hw, req)

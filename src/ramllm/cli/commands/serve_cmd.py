@@ -92,6 +92,12 @@ def serve_command(
         str | None,
         typer.Option("--api-key", help="API key required for completions (recommended on 0.0.0.0)"),
     ] = None,
+    min_tps: Annotated[
+        float | None, typer.Option("--min-tps", help="Minimum tolerable tokens/second threshold")
+    ] = None,
+    ubatch: Annotated[
+        int, typer.Option("--ubatch", help="Micro-batch size for activation buffers")
+    ] = 512,
     auto_retry: Annotated[
         bool,
         typer.Option(
@@ -184,6 +190,10 @@ def serve_command(
             child_cmd.extend(["--gpus", gpus])
         if active_api_key:
             child_cmd.extend(["--api-key", active_api_key])
+        if min_tps is not None:
+            child_cmd.extend(["--min-tps", str(min_tps)])
+        if ubatch != 512:
+            child_cmd.extend(["--ubatch", str(ubatch)])
 
         # Launch detached subprocess
         with open(log_path, "w", encoding="utf-8") as log_file:
@@ -279,6 +289,8 @@ def serve_command(
         gpu_indices=gpu_indices,
         auto_retry=auto_retry,
         max_retries=max_retries,
+        min_tps=min_tps,
+        ubatch=ubatch,
     )
 
     # Register in process table

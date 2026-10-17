@@ -6,7 +6,7 @@ from ramllm.core.analyzer.kv import estimate_compute_buffer_bytes, kv_cache_byte
 from ramllm.core.analyzer.moe import calculate_moe_working_set_bytes
 from ramllm.core.planner.cost_model import estimate_speed
 from ramllm.core.planner.explain import explain_plan
-from ramllm.core.planner.feasibility import classify_verdict
+from ramllm.core.planner.feasibility import SlownessTolerance, classify_verdict
 from ramllm.core.schemas import (
     ExecutionPlan,
     HardwareProfile,
@@ -31,6 +31,9 @@ def _build_backend_args(
     multi_gpu_ts: str | None = None,
     main_gpu: int | None = None,
     ncmoe: int | None = None,
+    ubatch: int = 512,
+    flash_attn: bool = False,
+    n_parallel: int = 1,
 ) -> list[str]:
     """Generate concrete llama-server / llama-cli CLI arguments."""
     args = [
@@ -45,6 +48,8 @@ def _build_backend_args(
         args.extend(["-ctk", type_k])
     if type_v != "f16":
         args.extend(["-ctv", type_v])
+    if flash_attn or type_v in ("q8_0", "q4_0"):
+        args.append("-fa")
     if cpu_moe:
         args.append("-cmoe")
     if ncmoe is not None and ncmoe > 0:
@@ -55,7 +60,53 @@ def _build_backend_args(
         args.append("--no-kv-offload")
     if not mmap:
         args.extend(["-lm", "none"])
+    if ubatch != 512:
+        args.extend(["-ub", str(ubatch)])
+    if n_parallel > 1:
+        args.extend(["-np", str(n_parallel)])
     return args
+
+
+def _get_kv_footprint_and_types(
+    model: ModelInfo,
+    target_ctx: int,
+    kv_t: str,
+    location: str,
+    n_slots: int = 1,
+) -> tuple[int, str, str, list[str]]:
+    warnings: list[str] = []
+    type_k = kv_t
+    type_v = kv_t
+
+    # V-cache quantization requires Flash Attention.
+    # On pure CPU KV cache, Flash Attention is unsupported in llama.cpp, so downgrade V to f16.
+    if location == "cpu" and kv_t in ("q8_0", "q4_0"):
+        type_v = "f16"
+        warnings.append(
+            f"V-cache quantization requires Flash Attention (unsupported for CPU KV); "
+            f"downgraded V-cache from {kv_t} to f16 while preserving K-cache at {type_k}."
+        )
+
+    if model.arch in ("deepseek", "deepseek2") and model.kv_lora_rank is None:
+        warnings.append(
+            "DeepSeek architecture uses MLA compressed KV, but metadata was unresolved in GGUF; "
+            "falling back to conservative dense KV estimate."
+        )
+
+    footprint = kv_cache_bytes(
+        n_layers=model.n_layers,
+        context_length=target_ctx,
+        n_kv_heads=model.n_kv_heads,
+        head_dim=model.head_dim,
+        type_k=type_k,  # type: ignore[arg-type]
+        type_v=type_v,  # type: ignore[arg-type]
+        n_slots=n_slots,
+        sliding_window_size=model.sliding_window_size,
+        kv_lora_rank=model.kv_lora_rank,
+        is_hybrid_ssm=model.is_hybrid_ssm,
+        ssm_d_state=model.ssm_d_state,
+    )
+    return footprint, type_k, type_v, warnings
 
 
 def generate_candidate_plans(
@@ -70,9 +121,16 @@ def generate_candidate_plans(
     total_layers = model.n_layers
     target_ctx = req.target_context or req.min_context
     compute_buffer_bytes = estimate_compute_buffer_bytes(
-        target_ctx, batch_size=512, hidden_size=model.hidden_size
+        target_ctx,
+        batch_size=512,
+        hidden_size=model.hidden_size,
+        intermediate_size=int(model.hidden_size * 2.7),
+        ubatch_size=req.ubatch_size,
     )
     calib_factor = get_calibration_factor(model.path)
+    slowness_tol = (
+        SlownessTolerance(min_tok_s=req.min_tps) if req.min_tps is not None else SlownessTolerance()
+    )
 
     # Allowed KV types
     kv_types: list[Literal["f16", "q8_0", "q4_0"]] = ["f16"]
@@ -86,27 +144,30 @@ def generate_candidate_plans(
     # Strategy 1: Full GPU Residency
     if req.use_gpu and usable_vram:
         for kv_t in kv_types:
-            kv_footprint = kv_cache_bytes(
-                n_layers=total_layers,
-                context_length=target_ctx,
-                n_kv_heads=model.n_kv_heads,
-                head_dim=model.head_dim,
-                type_k=kv_t,
-                type_v=kv_t,
+            kv_footprint, type_k, type_v, kv_warns = _get_kv_footprint_and_types(
+                model=model,
+                target_ctx=target_ctx,
+                kv_t=kv_t,
+                location="gpu",
+                n_slots=req.n_parallel_slots,
             )
             vram_needed = model.total_weight_bytes + kv_footprint + compute_buffer_bytes
 
             if vram_needed <= primary_gpu_vram:
-                # Full single GPU fit
                 placement = Placement(
                     gpu_layers={primary_gpu_idx: list(range(total_layers))},
                     cpu_layers=[],
                     disk_streamed_layers=[],
                 )
-                kv_cfg = KvConfig(location="gpu", type_k=kv_t, type_v=kv_t, context=target_ctx)
+                kv_cfg = KvConfig(
+                    location="gpu",
+                    type_k=type_k,  # type: ignore[arg-type]
+                    type_v=type_v,  # type: ignore[arg-type]
+                    context=target_ctx,
+                )
                 mem = MemoryEstimate(
                     vram_peak_bytes={primary_gpu_idx: vram_needed},
-                    ram_peak_bytes=int(500 * 1024 * 1024),  # Host process RSS baseline
+                    ram_peak_bytes=int(500 * 1024 * 1024),
                 )
                 working_set_gpu = (
                     calculate_moe_working_set_bytes(
@@ -116,6 +177,7 @@ def generate_candidate_plans(
                         model.shared_expert_bytes_per_layer,
                         model.n_experts,
                         model.n_experts_used,
+                        num_tokens=1,
                     )
                     if model.is_moe
                     else model.total_weight_bytes
@@ -130,12 +192,24 @@ def generate_candidate_plans(
                     kv_read_bytes_cpu=0,
                     active_params=model.n_params,
                     calibration_factor=calib_factor,
+                    num_boundaries=0,
+                    hidden_size=model.hidden_size,
                 )
                 verdict = classify_verdict(
-                    speed.decode_tok_s_low, speed.decode_tok_s_high, False, True
+                    speed.decode_tok_s_low,
+                    speed.decode_tok_s_high,
+                    False,
+                    True,
+                    tolerance=slowness_tol,
                 )
                 args = _build_backend_args(
-                    model.path, ngl=total_layers, ctx=target_ctx, type_k=kv_t, type_v=kv_t
+                    model.path,
+                    ngl=total_layers,
+                    ctx=target_ctx,
+                    type_k=type_k,
+                    type_v=type_v,
+                    ubatch=req.ubatch_size,
+                    n_parallel=req.n_parallel_slots,
                 )
                 expl = explain_plan(model, placement, kv_cfg, mem, speed, total_layers)
 
@@ -149,6 +223,7 @@ def generate_candidate_plans(
                         memory=mem,
                         speed=speed,
                         verdict=verdict,
+                        warnings=kv_warns,
                         backend_args=args,
                         explanation=expl,
                     )
@@ -158,13 +233,12 @@ def generate_candidate_plans(
     if req.use_gpu and usable_vram and total_usable_vram > 0:
         for kv_t in kv_types:
             for kv_loc in ["gpu", "cpu"]:
-                kv_footprint = kv_cache_bytes(
-                    n_layers=total_layers,
-                    context_length=target_ctx,
-                    n_kv_heads=model.n_kv_heads,
-                    head_dim=model.head_dim,
-                    type_k=kv_t,  # type: ignore[arg-type]
-                    type_v=kv_t,  # type: ignore[arg-type]
+                kv_footprint, type_k, type_v, kv_warns = _get_kv_footprint_and_types(
+                    model=model,
+                    target_ctx=target_ctx,
+                    kv_t=kv_t,
+                    location=kv_loc,
+                    n_slots=req.n_parallel_slots,
                 )
                 # Compute how many layers fit in VRAM
                 available_for_layers = primary_gpu_vram - compute_buffer_bytes
@@ -175,7 +249,6 @@ def generate_candidate_plans(
                 if available_for_layers <= 0:
                     continue
 
-                # Count how many layers can be placed in VRAM
                 accumulated = 0
                 gpu_layers: list[int] = []
                 for l_idx, l_bytes in enumerate(model.per_layer_bytes):
@@ -214,8 +287,8 @@ def generate_candidate_plans(
                 )
                 kv_cfg = KvConfig(
                     location=kv_loc,  # type: ignore[arg-type]
-                    type_k=kv_t,
-                    type_v=kv_t,
+                    type_k=type_k,  # type: ignore[arg-type]
+                    type_v=type_v,  # type: ignore[arg-type]
                     context=target_ctx,
                 )
                 mem = MemoryEstimate(
@@ -262,17 +335,25 @@ def generate_candidate_plans(
                     kv_read_bytes_cpu=kv_footprint if kv_loc == "cpu" else 0,
                     active_params=model.n_params,
                     calibration_factor=calib_factor,
+                    num_boundaries=1,  # Contiguous split has 1 GPU-CPU boundary
+                    hidden_size=model.hidden_size,
                 )
                 verdict = classify_verdict(
-                    speed.decode_tok_s_low, speed.decode_tok_s_high, has_disk_spill, True
+                    speed.decode_tok_s_low,
+                    speed.decode_tok_s_high,
+                    has_disk_spill,
+                    True,
+                    tolerance=slowness_tol,
                 )
                 args = _build_backend_args(
                     model.path,
                     ngl=len(gpu_layers),
                     ctx=target_ctx,
-                    type_k=kv_t,
-                    type_v=kv_t,
+                    type_k=type_k,
+                    type_v=type_v,
                     no_kv_offload=(kv_loc == "cpu"),
+                    ubatch=req.ubatch_size,
+                    n_parallel=req.n_parallel_slots,
                 )
                 expl = explain_plan(model, placement, kv_cfg, mem, speed, total_layers)
 
@@ -286,6 +367,7 @@ def generate_candidate_plans(
                         memory=mem,
                         speed=speed,
                         verdict=verdict,
+                        warnings=kv_warns,
                         backend_args=args,
                         explanation=expl,
                     )
@@ -293,19 +375,18 @@ def generate_candidate_plans(
 
     # Strategy 3: MoE CPU Offload (Attention + Shared on GPU, Routed Experts on CPU)
     if model.is_moe and req.use_gpu and usable_vram and model.expert_bytes_per_layer:
-        # Non-expert weights (attention, shared experts, norms, embeddings) on GPU
         expert_total_bytes = sum(model.expert_bytes_per_layer)
         non_expert_total = model.total_weight_bytes - expert_total_bytes
         vram_needed_moe = non_expert_total + compute_buffer_bytes
 
         if vram_needed_moe <= primary_gpu_vram:
-            kv_footprint = kv_cache_bytes(
-                n_layers=total_layers,
-                context_length=target_ctx,
-                n_kv_heads=model.n_kv_heads,
-                head_dim=model.head_dim,
-                type_k="q8_0" if req.allow_kv_quant else "f16",
-                type_v="q8_0" if req.allow_kv_quant else "f16",
+            kv_t = "q8_0" if req.allow_kv_quant else "f16"
+            kv_footprint, type_k, type_v, kv_warns = _get_kv_footprint_and_types(
+                model=model,
+                target_ctx=target_ctx,
+                kv_t=kv_t,
+                location="gpu",
+                n_slots=req.n_parallel_slots,
             )
             ram_needed = expert_total_bytes + int(500 * 1024 * 1024)
 
@@ -317,8 +398,8 @@ def generate_candidate_plans(
                 )
                 kv_cfg = KvConfig(
                     location="gpu",
-                    type_k="q8_0" if req.allow_kv_quant else "f16",
-                    type_v="q8_0" if req.allow_kv_quant else "f16",
+                    type_k=type_k,  # type: ignore[arg-type]
+                    type_v=type_v,  # type: ignore[arg-type]
                     context=target_ctx,
                 )
                 mem = MemoryEstimate(
@@ -342,21 +423,29 @@ def generate_candidate_plans(
                     kv_read_bytes_cpu=0,
                     active_params=model.n_params,
                     calibration_factor=calib_factor,
+                    moe_layers_on_cpu=total_layers,
+                    hidden_size=model.hidden_size,
                 )
                 verdict = classify_verdict(
-                    speed.decode_tok_s_low, speed.decode_tok_s_high, False, True
+                    speed.decode_tok_s_low,
+                    speed.decode_tok_s_high,
+                    False,
+                    True,
+                    tolerance=slowness_tol,
                 )
                 args = _build_backend_args(
                     model.path,
                     ngl=total_layers,
                     ctx=target_ctx,
-                    type_k=kv_cfg.type_k,
-                    type_v=kv_cfg.type_v,
+                    type_k=type_k,
+                    type_v=type_v,
                     cpu_moe=True,
+                    ubatch=req.ubatch_size,
+                    n_parallel=req.n_parallel_slots,
                 )
                 expl = explain_plan(model, placement, kv_cfg, mem, speed, total_layers)
 
-                warnings: list[str] = []
+                warnings: list[str] = list(kv_warns)
                 if hw.os == "macos" and any(g.vendor == "apple" for g in hw.gpus):
                     warnings.append(
                         "Notice: On Apple Silicon with Metal, mixed CPU-MoE buffers may encounter Metal command buffer allocation pressure. Prefer unified layer-split offload."
@@ -389,13 +478,12 @@ def generate_candidate_plans(
             vram_needed = non_expert_total + gpu_expert_bytes + compute_buffer_bytes
             if vram_needed <= primary_gpu_vram:
                 kv_t = "q8_0" if req.allow_kv_quant else "f16"
-                kv_footprint = kv_cache_bytes(
-                    n_layers=total_layers,
-                    context_length=target_ctx,
-                    n_kv_heads=model.n_kv_heads,
-                    head_dim=model.head_dim,
-                    type_k=kv_t,
-                    type_v=kv_t,
+                kv_footprint, type_k, type_v, kv_warns = _get_kv_footprint_and_types(
+                    model=model,
+                    target_ctx=target_ctx,
+                    kv_t=kv_t,
+                    location="gpu",
+                    n_slots=req.n_parallel_slots,
                 )
                 ram_needed = cpu_expert_bytes + int(500 * 1024 * 1024)
 
@@ -405,7 +493,12 @@ def generate_candidate_plans(
                         cpu_layers=[],
                         expert_placement="cpu",
                     )
-                    kv_cfg = KvConfig(location="gpu", type_k=kv_t, type_v=kv_t, context=target_ctx)
+                    kv_cfg = KvConfig(
+                        location="gpu",
+                        type_k=type_k,  # type: ignore[arg-type]
+                        type_v=type_v,  # type: ignore[arg-type]
+                        context=target_ctx,
+                    )
                     mem = MemoryEstimate(
                         vram_peak_bytes={primary_gpu_idx: vram_needed + kv_footprint},
                         ram_peak_bytes=ram_needed,
@@ -428,17 +521,25 @@ def generate_candidate_plans(
                         kv_read_bytes_cpu=0,
                         active_params=model.n_params,
                         calibration_factor=calib_factor,
+                        moe_layers_on_cpu=ncmoe,
+                        hidden_size=model.hidden_size,
                     )
                     verdict = classify_verdict(
-                        speed.decode_tok_s_low, speed.decode_tok_s_high, False, True
+                        speed.decode_tok_s_low,
+                        speed.decode_tok_s_high,
+                        False,
+                        True,
+                        tolerance=slowness_tol,
                     )
                     args = _build_backend_args(
                         model.path,
                         ngl=total_layers,
                         ctx=target_ctx,
-                        type_k=kv_t,
-                        type_v=kv_t,
+                        type_k=type_k,
+                        type_v=type_v,
                         ncmoe=ncmoe,
+                        ubatch=req.ubatch_size,
+                        n_parallel=req.n_parallel_slots,
                     )
                     expl = explain_plan(model, placement, kv_cfg, mem, speed, total_layers)
                     expl.append(
@@ -455,6 +556,7 @@ def generate_candidate_plans(
                             memory=mem,
                             speed=speed,
                             verdict=verdict,
+                            warnings=kv_warns,
                             backend_args=args,
                             explanation=expl,
                         )
@@ -465,7 +567,6 @@ def generate_candidate_plans(
         main_gpu_idx = max(usable_vram.keys(), key=lambda k: usable_vram[k])
         sorted_gpu_indices = sorted(usable_vram.keys(), key=lambda k: (k != main_gpu_idx, k))
 
-        # Check for GPU bandwidth mismatch
         gpu_bandwidths = {
             idx: next(
                 (g.vram_bandwidth_bytes_s or 300.0 * 1024**3 for g in hw.gpus if g.index == idx),
@@ -485,16 +586,14 @@ def generate_candidate_plans(
             )
 
         for kv_t in kv_types:
-            kv_footprint = kv_cache_bytes(
-                n_layers=total_layers,
-                context_length=target_ctx,
-                n_kv_heads=model.n_kv_heads,
-                head_dim=model.head_dim,
-                type_k=kv_t,
-                type_v=kv_t,
+            kv_footprint, type_k, type_v, kv_warns = _get_kv_footprint_and_types(
+                model=model,
+                target_ctx=target_ctx,
+                kv_t=kv_t,
+                location="gpu",
+                n_slots=req.n_parallel_slots,
             )
 
-            # Usable layer capacity per GPU
             layer_budget_per_gpu: dict[int, int] = {}
             for idx in usable_vram.keys():
                 avail = usable_vram[idx]
@@ -539,7 +638,12 @@ def generate_candidate_plans(
                         cpu_layers=cpu_layers,
                         disk_streamed_layers=[],
                     )
-                    kv_cfg = KvConfig(location="gpu", type_k=kv_t, type_v=kv_t, context=target_ctx)
+                    kv_cfg = KvConfig(
+                        location="gpu",
+                        type_k=type_k,  # type: ignore[arg-type]
+                        type_v=type_v,  # type: ignore[arg-type]
+                        context=target_ctx,
+                    )
                     vram_peaks = {
                         idx: sum(model.per_layer_bytes[layer_i] for layer_i in assigned_layers[idx])
                         + (
@@ -554,7 +658,6 @@ def generate_candidate_plans(
                         ram_peak_bytes=ram_needed,
                     )
 
-                    # Compute effective pipeline VRAM bandwidth (weighted harmonic mean)
                     assigned_bytes_per_gpu = {
                         idx: sum(model.per_layer_bytes[layer_i] for layer_i in assigned_layers[idx])
                         for idx in active_gpus
@@ -595,6 +698,7 @@ def generate_candidate_plans(
                         )
                         active_cpu_bytes = cpu_weight_bytes
 
+                    num_gpu_bounds = len(active_gpus) - 1 + (1 if cpu_layers else 0)
                     speed = estimate_speed(
                         hw=hw,
                         bytes_gpu=active_gpu_bytes,
@@ -606,21 +710,31 @@ def generate_candidate_plans(
                         active_params=model.n_params,
                         calibration_factor=calib_factor,
                         vram_bandwidth_override=pipeline_vram_bw,
+                        num_boundaries=num_gpu_bounds,
+                        hidden_size=model.hidden_size,
                     )
                     verdict = classify_verdict(
-                        speed.decode_tok_s_low, speed.decode_tok_s_high, False, True
+                        speed.decode_tok_s_low,
+                        speed.decode_tok_s_high,
+                        False,
+                        True,
+                        tolerance=slowness_tol,
                     )
                     args = _build_backend_args(
                         model.path,
                         ngl=total_assigned,
                         ctx=target_ctx,
-                        type_k=kv_t,
-                        type_v=kv_t,
+                        type_k=type_k,
+                        type_v=type_v,
                         multi_gpu_ts=ts_str,
                         main_gpu=main_gpu_idx,
+                        ubatch=req.ubatch_size,
+                        n_parallel=req.n_parallel_slots,
                     )
                     expl = explain_plan(model, placement, kv_cfg, mem, speed, total_layers)
-                    warnings = [mismatch_warning] if mismatch_warning else []
+                    warnings = list(kv_warns)
+                    if mismatch_warning:
+                        warnings.append(mismatch_warning)
 
                     plans.append(
                         ExecutionPlan(
@@ -640,13 +754,12 @@ def generate_candidate_plans(
 
     # Strategy 5: Pure CPU Fallback
     for kv_t in kv_types:
-        kv_footprint = kv_cache_bytes(
-            n_layers=total_layers,
-            context_length=target_ctx,
-            n_kv_heads=model.n_kv_heads,
-            head_dim=model.head_dim,
-            type_k=kv_t,
-            type_v=kv_t,
+        kv_footprint, type_k, type_v, kv_warns = _get_kv_footprint_and_types(
+            model=model,
+            target_ctx=target_ctx,
+            kv_t=kv_t,
+            location="cpu",
+            n_slots=req.n_parallel_slots,
         )
         total_ram_needed = model.total_weight_bytes + kv_footprint + compute_buffer_bytes
         fits_ram = total_ram_needed <= usable_ram
@@ -665,7 +778,12 @@ def generate_candidate_plans(
             cpu_layers=[] if has_disk else list(range(total_layers)),
             disk_streamed_layers=disk_streamed_layers,
         )
-        kv_cfg = KvConfig(location="cpu", type_k=kv_t, type_v=kv_t, context=target_ctx)
+        kv_cfg = KvConfig(
+            location="cpu",
+            type_k=type_k,  # type: ignore[arg-type]
+            type_v=type_v,  # type: ignore[arg-type]
+            context=target_ctx,
+        )
         mem = MemoryEstimate(
             vram_peak_bytes={},
             ram_peak_bytes=total_ram_needed if not has_disk else int(1.5 * 1024**3),
@@ -679,6 +797,7 @@ def generate_candidate_plans(
                 model.shared_expert_bytes_per_layer,
                 model.n_experts,
                 model.n_experts_used,
+                num_tokens=1,
             )
             if model.is_moe
             else model.total_weight_bytes
@@ -693,18 +812,26 @@ def generate_candidate_plans(
             kv_read_bytes_cpu=kv_footprint,
             active_params=model.n_params,
             calibration_factor=calib_factor,
+            num_boundaries=0,
+            hidden_size=model.hidden_size,
         )
         verdict = classify_verdict(
-            speed.decode_tok_s_low, speed.decode_tok_s_high, has_disk, fits_ram or has_disk
+            speed.decode_tok_s_low,
+            speed.decode_tok_s_high,
+            has_disk,
+            fits_ram or has_disk,
+            tolerance=slowness_tol,
         )
         args = _build_backend_args(
             model.path,
             ngl=0,
             ctx=target_ctx,
-            type_k=kv_t,
-            type_v=kv_t,
+            type_k=type_k,
+            type_v=type_v,
             no_kv_offload=True,
             mmap=not has_disk,
+            ubatch=req.ubatch_size,
+            n_parallel=req.n_parallel_slots,
         )
         expl = explain_plan(model, placement, kv_cfg, mem, speed, total_layers)
 
@@ -718,6 +845,7 @@ def generate_candidate_plans(
                 memory=mem,
                 speed=speed,
                 verdict=verdict,
+                warnings=kv_warns,
                 backend_args=args,
                 explanation=expl,
             )
