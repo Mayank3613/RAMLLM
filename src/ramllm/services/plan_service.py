@@ -5,6 +5,7 @@ from typing import Literal
 
 from ramllm.cli.ui.theme import icons
 from ramllm.core.schemas import ExecutionPlan, HardwareProfile
+from ramllm.telemetry.calibration import get_calibration_info
 from ramllm.util.parsing import parse_bytes, parse_context
 
 MEMORY_PRESETS = {
@@ -192,9 +193,14 @@ def format_plain_summary(plan: ExecutionPlan, model_display_name: str, hw: Hardw
         else (icons.warn if plan.verdict == "CONSTRAINED" else icons.fail)
     )
 
+    _, conf_tag, _ = get_calibration_info(
+        model_path=plan.model_variant,
+    )
+    conf_label = f"[{conf_tag.capitalize()} Confidence]"
+
     lines = [
         f"{status_icon} {model_display_name} {verdict_desc}",
-        f"  {icons.bullet} Speed: {speed_adjective} — about {words_low}–{words_high} words per second   [{plan.verdict}]",
+        f"  {icons.bullet} Speed: {speed_adjective} — about {words_low}–{words_high} words per second   [{plan.verdict}] {conf_label}",
         f"  {icons.bullet} Memory: {mem_desc}",
         f"  {icons.bullet} Where it runs: {placement_text}",
     ]

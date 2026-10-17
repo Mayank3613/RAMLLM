@@ -10,6 +10,7 @@ from ramllm.telemetry.calibration import (
     append_benchmark_record,
     compute_record_metrics,
     get_calibration_factor,
+    get_calibration_info,
     load_benchmark_records,
     migrate_legacy_record,
 )
@@ -233,3 +234,52 @@ def test_hierarchical_fallback_lookup(monkeypatch: pytest.MonkeyPatch, tmp_path:
         phase="prefill",
     )
     assert abs(f_pref - 2.0) < 0.05
+
+
+def test_calibration_info_confidence_levels(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    log_file = tmp_path / "bench.jsonl"
+    monkeypatch.setattr("ramllm.telemetry.calibration.BENCH_LOG_FILE", log_file)
+    monkeypatch.setattr("ramllm.telemetry.calibration.BENCH_DIR", tmp_path)
+
+    # Empty log -> uncalibrated
+    factor, conf, desc = get_calibration_info(
+        model_path="/models/test.gguf", arch="llama", strategy="split"
+    )
+    assert conf == "uncalibrated"
+    assert factor == 1.0
+
+    # Add an exact record
+    rec = BenchmarkRecord(
+        schema_version=2,
+        timestamp="2026-10-17T12:00:00",
+        model_path="/models/test.gguf",
+        plan_id="p1",
+        arch="llama",
+        quant="q4_k_m",
+        backend_version="b3800",
+        strategy="split",
+        predicted_decode_low=10.0,
+        predicted_decode_high=15.0,
+        measured_decode_tok_s=12.5,
+        predicted_prefill_low=50.0,
+        predicted_prefill_high=70.0,
+        measured_prefill_tok_s=60.0,
+        peak_ram_rss_bytes=1000,
+    )
+    append_benchmark_record(rec)
+
+    # High confidence: exact model path or exact config
+    _, conf_high, _ = get_calibration_info(model_path="/models/test.gguf")
+    assert conf_high == "high"
+
+    # Medium confidence: architecture match only
+    _, conf_med, _ = get_calibration_info(model_path="/models/other.gguf", arch="llama")
+    assert conf_med == "medium"
+
+    # Low confidence: strategy match only
+    _, conf_low, _ = get_calibration_info(
+        model_path="/models/other.gguf", arch="mistral", strategy="split"
+    )
+    assert conf_low == "low"

@@ -1,6 +1,7 @@
 """Human-readable explanation generation for execution plans."""
 
 from ramllm.core.schemas import KvConfig, MemoryEstimate, ModelInfo, Placement, SpeedEstimate
+from ramllm.telemetry.calibration import get_calibration_info, infer_placement_strategy
 
 
 def explain_plan(
@@ -71,5 +72,20 @@ def explain_plan(
     }
     desc = bottleneck_descriptions.get(speed.bottleneck, speed.bottleneck)
     lines.append(f"Primary Bottleneck: {desc}.")
+
+    # 5. Confidence tag explanation
+    strat = infer_placement_strategy(
+        gpu_layer_count=gpu_layer_count,
+        cpu_layer_count=cpu_layer_count,
+        disk_layer_count=disk_layer_count,
+        expert_placement=placement.expert_placement,
+    )
+    _, conf_tag, conf_desc = get_calibration_info(
+        model_path=model.path,
+        arch=model.arch,
+        quant=model.quant,
+        strategy=strat,
+    )
+    lines.append(f"Confidence Tag: [{conf_tag.upper()} ({conf_desc})].")
 
     return lines

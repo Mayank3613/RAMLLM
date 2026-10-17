@@ -128,7 +128,27 @@ def append_benchmark_record(record: BenchmarkRecord, log_path: Path | None = Non
         f.write(line)
 
 
-def get_calibration_factor(
+def infer_placement_strategy(
+    gpu_layer_count: int,
+    cpu_layer_count: int,
+    disk_layer_count: int,
+    expert_placement: str | None = None,
+) -> str:
+    """Infer placement strategy string from layer counts and expert placement."""
+    if disk_layer_count > 0:
+        return "disk_stream"
+    if expert_placement == "cpu":
+        return "moe_cpu_experts"
+    if gpu_layer_count > 0 and cpu_layer_count == 0:
+        return "full_gpu"
+    if cpu_layer_count > 0 and gpu_layer_count == 0:
+        return "cpu_only"
+    if gpu_layer_count > 0 and cpu_layer_count > 0:
+        return "split"
+    return "default"
+
+
+def get_calibration_info(
     model_path: str | None = None,
     arch: str | None = None,
     quant: str | None = None,
@@ -136,24 +156,16 @@ def get_calibration_factor(
     strategy: str | None = None,
     phase: Literal["decode", "prefill"] = "decode",
     log_path: Path | None = None,
-) -> float:
-    """Calculate moving average ratio of measured speed vs predicted speed.
+) -> tuple[float, Literal["high", "medium", "low", "uncalibrated"], str]:
+    """Calculate moving average ratio with confidence label and explanation.
 
-    Uses hierarchical fallback lookup:
-    1. Exact match: (arch, quant, backend_version, strategy, phase)
-    2. Architecture + Quant + Strategy match: (arch, quant, strategy, phase)
-    3. Architecture + Strategy: (arch, strategy, phase)
-    4. Exact model path match (if model_path is provided)
-    5. Strategy match: (strategy, phase)
-    6. Architecture match: (arch, phase)
-    7. Global moving average across all records for the phase
-    8. Uncalibrated default 1.0
-
-    Returns a multiplier (default 1.0, clamped between 0.5 and 2.0).
+    Returns:
+        tuple[factor, confidence, description]
+        confidence in ("high", "medium", "low", "uncalibrated")
     """
     records = load_benchmark_records(log_path)
     if not records:
-        return 1.0
+        return 1.0, "uncalibrated", "Uncalibrated (Analytical Baseline)"
 
     def get_ratio(r: BenchmarkRecord) -> float | None:
         if phase == "prefill":
@@ -186,7 +198,11 @@ def get_calibration_factor(
         ]
         avg = avg_ratios(matched)
         if avg is not None:
-            return max(0.5, min(avg, 2.0))
+            return (
+                max(0.5, min(avg, 2.0)),
+                "high",
+                f"Exact Config Match ({arch}/{quant}/{strategy})",
+            )
 
     # 2. Architecture + Quant + Strategy
     if arch and quant and strategy:
@@ -195,40 +211,65 @@ def get_calibration_factor(
         ]
         avg = avg_ratios(matched)
         if avg is not None:
-            return max(0.5, min(avg, 2.0))
+            return max(0.5, min(avg, 2.0)), "medium", f"Arch & Quant Match ({arch}/{quant})"
 
     # 3. Architecture + Strategy
     if arch and strategy:
         matched = [r for r in records if r.arch == arch and r.strategy == strategy]
         avg = avg_ratios(matched)
         if avg is not None:
-            return max(0.5, min(avg, 2.0))
+            return (
+                max(0.5, min(avg, 2.0)),
+                "medium",
+                f"Architecture & Strategy Match ({arch}/{strategy})",
+            )
 
     # 4. Exact model path match
     if model_path:
         matched = [r for r in records if r.model_path == model_path]
         avg = avg_ratios(matched)
         if avg is not None:
-            return max(0.5, min(avg, 2.0))
+            return max(0.5, min(avg, 2.0)), "high", "Exact Model Path Match"
 
-    # 5. Strategy match
-    if strategy:
-        matched = [r for r in records if r.strategy == strategy]
-        avg = avg_ratios(matched)
-        if avg is not None:
-            return max(0.5, min(avg, 2.0))
-
-    # 6. Architecture match
+    # 5. Architecture match
     if arch:
         matched = [r for r in records if r.arch == arch]
         avg = avg_ratios(matched)
         if avg is not None:
-            return max(0.5, min(avg, 2.0))
+            return max(0.5, min(avg, 2.0)), "medium", f"Architecture Match ({arch})"
+
+    # 6. Strategy match
+    if strategy:
+        matched = [r for r in records if r.strategy == strategy]
+        avg = avg_ratios(matched)
+        if avg is not None:
+            return max(0.5, min(avg, 2.0)), "low", f"Strategy Match ({strategy})"
 
     # 7. Global moving average across all records for phase
     avg = avg_ratios(records)
     if avg is not None:
-        return max(0.5, min(avg, 2.0))
+        return max(0.5, min(avg, 2.0)), "low", "Global Machine Average"
 
     # 8. Uncalibrated fallback
-    return 1.0
+    return 1.0, "uncalibrated", "Uncalibrated (Analytical Baseline)"
+
+
+def get_calibration_factor(
+    model_path: str | None = None,
+    arch: str | None = None,
+    quant: str | None = None,
+    backend_version: str | None = None,
+    strategy: str | None = None,
+    phase: Literal["decode", "prefill"] = "decode",
+    log_path: Path | None = None,
+) -> float:
+    factor, _, _ = get_calibration_info(
+        model_path=model_path,
+        arch=arch,
+        quant=quant,
+        backend_version=backend_version,
+        strategy=strategy,
+        phase=phase,
+        log_path=log_path,
+    )
+    return factor
