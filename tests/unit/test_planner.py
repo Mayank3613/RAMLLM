@@ -217,3 +217,106 @@ def test_flash_attention_v_quant_downgrade() -> None:
         if p.kv.location == "cpu" and p.kv.type_k in ("q8_0", "q4_0"):
             assert p.kv.type_v == "f16"
             assert any("Flash Attention" in w for w in p.warnings)
+
+
+@given(
+    vram_extra_gb=st.integers(min_value=1, max_value=12),
+)
+def test_property_layer_offload_monotonicity_with_vram(vram_extra_gb: int) -> None:
+    """Property: Increasing available VRAM never decreases offloaded GPU layers in the optimal plan."""
+    hw_base = load_synthetic_profile("tests/fixtures/hardware/laptop_16gb_gpu_6gb.json")
+    model = _make_dummy_model(size_gb=8.0, n_layers=32)
+    req = UserRequest(model=model.path)
+
+    plans_base = create_execution_plans(model, hw_base, req)
+    ngl_base = sum(len(layers) for layers in plans_base[0].placement.gpu_layers.values())
+
+    gpu_boosted = hw_base.gpus[0].model_copy(
+        update={
+            "vram_total_bytes": hw_base.gpus[0].vram_total_bytes + vram_extra_gb * 1024**3,
+            "vram_free_bytes": hw_base.gpus[0].vram_free_bytes + vram_extra_gb * 1024**3,
+        }
+    )
+    hw_boosted = hw_base.model_copy(update={"gpus": [gpu_boosted]})
+    plans_boosted = create_execution_plans(model, hw_boosted, req)
+    ngl_boosted = sum(len(layers) for layers in plans_boosted[0].placement.gpu_layers.values())
+
+    assert ngl_boosted >= ngl_base
+
+
+@given(
+    ram_gb=st.integers(min_value=8, max_value=64),
+    vram_gb=st.integers(min_value=4, max_value=24),
+)
+def test_property_strict_memory_bounds(ram_gb: int, vram_gb: int) -> None:
+    """Property: Feasible plans must never exceed hardware RAM or per-GPU VRAM limits."""
+    hw_base = load_synthetic_profile("tests/fixtures/hardware/laptop_16gb_gpu_6gb.json")
+    gpu = hw_base.gpus[0].model_copy(
+        update={
+            "vram_total_bytes": vram_gb * 1024**3,
+            "vram_free_bytes": vram_gb * 1024**3,
+        }
+    )
+    hw = hw_base.model_copy(
+        update={
+            "ram_total_bytes": ram_gb * 1024**3,
+            "ram_available_bytes": int(ram_gb * 0.9 * 1024**3),
+            "gpus": [gpu],
+        }
+    )
+    model = _make_dummy_model(size_gb=6.0, n_layers=24)
+    req = UserRequest(model=model.path, min_context=2048, target_context=2048)
+
+    plans = create_execution_plans(model, hw, req)
+    for p in plans:
+        if p.verdict != "INFEASIBLE":
+            assert p.memory.ram_peak_bytes <= hw.ram_total_bytes
+            for g_idx, v_peak in p.memory.vram_peak_bytes.items():
+                g_total = next(g.vram_total_bytes for g in hw.gpus if g.index == g_idx)
+                assert v_peak <= g_total
+
+
+@given(
+    n_layers=st.integers(min_value=8, max_value=48),
+)
+def test_property_placement_completeness_and_exclusivity(n_layers: int) -> None:
+    """Property: Every model layer is assigned to exactly one tier (GPU, CPU, or Disk)."""
+    hw = load_synthetic_profile("tests/fixtures/hardware/laptop_16gb_gpu_6gb.json")
+    model = _make_dummy_model(size_gb=4.0, n_layers=n_layers)
+    req = UserRequest(model=model.path)
+
+    plans = create_execution_plans(model, hw, req)
+    assert len(plans) > 0
+    for p in plans:
+        if p.verdict != "INFEASIBLE":
+            assigned_layers: list[int] = []
+            for gpu_layer_list in p.placement.gpu_layers.values():
+                assigned_layers.extend(gpu_layer_list)
+            assigned_layers.extend(p.placement.cpu_layers)
+            assigned_layers.extend(p.placement.disk_streamed_layers)
+
+            # Check exclusivity: no duplicates
+            assert len(assigned_layers) == len(set(assigned_layers))
+            # Check completeness: all layers 0..n_layers-1 accounted for
+            assert set(assigned_layers) == set(range(n_layers))
+
+
+@given(
+    ctx=st.sampled_from([1024, 2048, 4096]),
+)
+def test_property_plan_determinism_and_invariance(ctx: int) -> None:
+    """Property: Plan generation is deterministic given identical hardware profile and request."""
+    hw = load_synthetic_profile("tests/fixtures/hardware/laptop_16gb_gpu_6gb.json")
+    model = _make_dummy_model(size_gb=4.0, n_layers=32)
+    req = UserRequest(model=model.path, min_context=ctx, target_context=ctx)
+
+    plans_a = create_execution_plans(model, hw, req)
+    plans_b = create_execution_plans(model, hw, req)
+
+    assert len(plans_a) == len(plans_b)
+    for p_a, p_b in zip(plans_a, plans_b, strict=True):
+        assert p_a.id == p_b.id
+        assert p_a.verdict == p_b.verdict
+        assert p_a.placement == p_b.placement
+        assert p_a.kv == p_b.kv
+        assert p_a.backend_args == p_b.backend_args

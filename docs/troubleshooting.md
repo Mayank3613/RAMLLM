@@ -19,6 +19,25 @@ ramllm doctor --fix
 ramllm explain RAM-E012
 ```
 
+Sample diagnostics report:
+```text
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ RAMLLM Diagnostic Doctor                                                     │
+╰──────────────────────────────────────────────────────────────────────────────╯
+✔ Storage: Directories
+  RAMLLM storage initialized at ~/.local/share/ramllm
+✔ Backend: llama.cpp Engine
+  Found via path at `/usr/local/bin/llama-server` (GPU Offload, KV Quantization, MoE CPU Offload, Flash Attention)
+! OS & Enforcement: Memory Governor Enforcement
+  Soft monitoring only — macOS lacks kernel cgroups; RAMLLM uses 1 Hz RSS sampling and proactive tiered recovery.
+✔ Hardware: Available RAM
+  14.2 GB available (32.0 GB total)
+✔ Catalog: Model Catalog Entries
+  3 model(s) registered and verified on disk
+
+✔ Everything looks good. Try `ramllm chat`.
+```
+
 To see complete Python tracebacks and detailed debug logs:
 ```bash
 ramllm --debug <command>

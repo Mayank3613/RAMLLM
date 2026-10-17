@@ -41,6 +41,7 @@ dev = [
     "pytest-mock>=3.12.0",
     "pytest-asyncio>=0.23.0",
     "hypothesis>=6.100.0",
+    "pytest-cov>=5.0.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
     "types-psutil>=5.9.0",
@@ -96,3 +97,8 @@ markers = [
     "gpu: marks tests requiring a physical GPU",
 ]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=5.0.0",
+]

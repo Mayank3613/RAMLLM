@@ -45,3 +45,15 @@ Verified on:
    - `--host HOST`: listen host (default `127.0.0.1`)
    - `--port PORT`: listen port (default `8080`)
    - `-m, --model FNAME`: model path
+
+
+## Upstream Compatibility Matrix
+
+| llama.cpp Release Tag / Build | Date | Status | Supported Flags | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `b4800` – `b5000+` (v0.6.x) | 2024–2025 | **Fully Supported** | `-ngl`, `-c`, `-ctk`, `-ctv`, `-cmoe`, `-ncmoe`, `-fit`, `-lm` | Upstream introduced `-fit` and `llama-fit-params`. Full flag compatibility. |
+| `b4000` – `b4799` (v0.5.x) | 2024 | **Fully Supported** | `-ngl`, `-c`, `-ctk`, `-ctv`, `-cmoe`, `-lm` | Modern flag syntax (`-lm none` replaces `--no-mmap`). |
+| `b3000` – `b3999` (v0.4.x) | 2023–2024 | **Compatible** | `-ngl`, `-c`, `-ctk`, `-ctv` | Legacy flag fallback for older builds. |
+
+### Upstream Testing Workflow
+RAMLLM runs an automated weekly compatibility workflow ([`.github/workflows/weekly_llamacpp.yml`](../.github/workflows/weekly_llamacpp.yml)) that tests upstream `llama.cpp` integration, validating CLI argument schemas, health endpoints, and buffer regex parsers.

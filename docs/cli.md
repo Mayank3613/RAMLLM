@@ -98,6 +98,8 @@ Run model with budget enforcement, buffer validation, and execution.
 | `--mode` | choice | none | Performance and quality tradeoff mode |
 | `--prompt`, `-p` | str | none | Single prompt generation |
 | `--port` | int | `8080` | Port for llama-server |
+| `--min-tps` | float | none | Minimum tolerable tokens/second threshold |
+| `--ubatch` | int | `512` | Micro-batch size for activation buffers |
 | `--live` | boolean | `False` | Monitor memory live with governor |
 | `--auto-retry` | boolean | `True` | Automatically adapt to smaller plans on failure or OOM |
 | `--max-retries` | int | `3` | Maximum auto-retry recovery attempts |
@@ -121,9 +123,13 @@ Start OpenAI-compatible API server with active memory governor.
 | `--host` | str | `127.0.0.1` | Host interface to bind |
 | `-d`, `--detach` | boolean | `False` | Run server in the background as a detached service |
 | `--api-key` | str | none | API key required for completions (recommended on 0.0.0.0) |
+| `--min-tps` | float | none | Minimum tolerable tokens/second threshold |
+| `--ubatch` | int | `512` | Micro-batch size for activation buffers |
 | `--auto-retry` | boolean | `True` | Automatically adapt to smaller plans on failure or OOM |
 | `--max-retries` | int | `3` | Maximum auto-retry recovery attempts |
 | `--engine-id` | str | none | Internal explicit engine ID for daemon |
+| `--insecure` | boolean | `False` | Allow binding to non-loopback interface (0.0.0.0) without an API key |
+| `--cors-origins` | str | none | Comma-separated allowed CORS origins (e.g. 'http://localhost:3000') |
 
 ---
 
@@ -138,6 +144,7 @@ Run empirical benchmark on model and update calibration factor.
 | `model` | path | *required* | Path to GGUF model |
 | `--plan-id` | str | none | Benchmark specific plan |
 | `--port` | int | `8085` | Port for llama-server |
+| `--export` | path | none | Export benchmark report to JSON |
 
 ---
 
@@ -157,10 +164,13 @@ Plan model execution strategy given hardware constraints and memory budgets.
 | `--prefer` | choice | none |  |
 | `--cpu-only` | boolean | `False` | Disable GPU offloading |
 | `--no-kv-quant` | boolean | `False` | Disallow quantized KV cache |
+| `--min-tps` | float | none | Minimum tolerable tokens/second threshold |
+| `--ubatch` | int | `512` | Micro-batch size for activation buffers |
 | `--details` | boolean | `False` | Display full candidate comparison table |
 | `--explain` | boolean | `False` | Print detailed reasoning |
 | `--json` | boolean | `False` | Output JSON |
 | `--hw-json` | path | none | Synthetic hardware profile |
+| `--cross-check-fit` | boolean | `False` | Cross-check execution plan against upstream llama.cpp -fit advisory |
 
 ---
 
@@ -179,8 +189,11 @@ Recommend the best-quality models that fit within hardware budgets (offline cata
 | `--prefer` | choice | none |  |
 | `--cpu-only` | boolean | `False` | Disable GPU offloading |
 | `--no-kv-quant` | boolean | `False` | Disallow quantized KV cache |
+| `--min-tps` | float | none | Minimum tolerable tokens/second threshold |
+| `--ubatch` | int | `512` | Micro-batch size for activation buffers |
 | `--json` | boolean | `False` | Output JSON |
 | `--hw-json` | path | none | Synthetic hardware profile |
+| `--cross-check-fit` | boolean | `False` | Cross-check execution plan against upstream llama.cpp -fit advisory |
 
 ---
 
