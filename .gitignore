@@ -14,3 +14,5 @@ htmlcov/
 .DS_Store
 ~/.cache/ramllm/
 hardware.json
+*.gguf
+tests/fixtures/models/

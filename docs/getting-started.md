@@ -144,10 +144,44 @@ ramllm stop --all
 
 ---
 
-## 7. Next Steps
+## 7. Programmatic Python Library API
+
+RAMLLM can also be used as a standalone Python library for hardware-aware model planning, profiling, and governor management:
+
+```python
+import ramllm
+
+# 1. Probe local hardware topology & memory bandwidth
+hw = ramllm.probe_hardware(quick=True)
+print(f"Host: {hw.cpu_name}, {hw.ram_total_bytes / (1024**3):.1f} GB RAM")
+
+# 2. Inspect GGUF tensor layout and KV requirements (zero weight loading)
+model = ramllm.analyze_gguf("/path/to/model.gguf")
+print(
+    f"Model: {model.arch}, {model.n_layers} layers, {model.total_weight_bytes / (1024**3):.1f} GB resident"
+)
+
+# 3. Compute mathematically optimal execution plans
+req = ramllm.UserRequest(model=model.path, min_context=2048, target_context=4096)
+plans = ramllm.create_execution_plans(model, hw, req)
+
+best_plan = plans[0]
+print(f"Plan ID: {best_plan.id} | Verdict: {best_plan.verdict}")
+print(
+    f"Speed Forecast: {best_plan.speed.decode_tok_s_low:.1f}–{best_plan.speed.decode_tok_s_high:.1f} tok/s (Bottleneck: {best_plan.speed.bottleneck})"
+)
+print(f"Engine Args: {' '.join(best_plan.backend_args)}")
+```
+
+---
+
+## 8. Next Steps
 
 - Explore the [CLI Reference](cli.md) for full parameter and flag details.
+- Try the [Interactive Demonstration](demo.md) and terminal recording guide (`scripts/demo.sh`).
 - Learn about memory tiers and verdicts in [Concepts](concepts.md).
+- Understand how RAMLLM compares to llama.cpp's `-fit` in [Architecture & Fit Positioning](positioning.md).
+- Review empirical prediction accuracy in [Hardware Validation & Accuracy](validation.md).
 - Integrate with your tools using [Recipes & Integrations](recipes.md).
 - Check the [Cheatsheet](cheatsheet.md) for quick terminal lookups.
 - Need help? Browse the [Troubleshooting Guide](troubleshooting.md) indexed by error codes.

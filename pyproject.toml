@@ -17,6 +17,13 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+[project.urls]
+Homepage = "https://github.com/Mayank3613/RAMLLM"
+Documentation = "https://github.com/Mayank3613/RAMLLM#readme"
+Repository = "https://github.com/Mayank3613/RAMLLM"
+Issues = "https://github.com/Mayank3613/RAMLLM/issues"
+Changelog = "https://github.com/Mayank3613/RAMLLM/blob/main/CHANGELOG.md"
+
 dependencies = [
     "pydantic>=2.6.0",
     "typer>=0.12.0",
