@@ -127,7 +127,7 @@ def generate_candidate_plans(
         intermediate_size=int(model.hidden_size * 2.7),
         ubatch_size=req.ubatch_size,
     )
-    calib_factor = get_calibration_factor(model.path)
+    calib_factor = get_calibration_factor(model_path=model.path, arch=model.arch, quant=model.quant)
     slowness_tol = (
         SlownessTolerance(min_tok_s=req.min_tps) if req.min_tps is not None else SlownessTolerance()
     )

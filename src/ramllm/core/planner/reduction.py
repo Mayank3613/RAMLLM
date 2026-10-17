@@ -41,7 +41,7 @@ def get_reduced_plan(
     curr_kv_loc = failed_plan.kv.location
     curr_moe_expert_placement = failed_plan.placement.expert_placement
     primary_gpu_idx = min(hw.gpus, key=lambda g: g.index).index if hw.gpus else 0
-    calib_factor = get_calibration_factor(model.path)
+    calib_factor = get_calibration_factor(model_path=model.path, arch=model.arch, quant=model.quant)
 
     # Strategy 1: Driver loss / GPU unavailable -> Immediate CPU fallback
     if failure_type in ("driver_loss", "gpu_unavailable"):

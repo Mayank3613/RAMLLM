@@ -483,6 +483,9 @@ def bench(
         str | None, typer.Option("--plan-id", help="Benchmark specific plan")
     ] = None,
     port: Annotated[int, typer.Option("--port", help="Port for llama-server")] = 8085,
+    export: Annotated[
+        Path | None, typer.Option("--export", help="Export benchmark report to JSON")
+    ] = None,
 ) -> None:
     """Run empirical benchmark on model and update calibration factor."""
     console = get_console()
@@ -500,27 +503,74 @@ def bench(
 
     table = Table(title="Benchmark Results", box=box.ROUNDED)
     table.add_column("Metric", style="cyan")
-    table.add_column("Predicted", style="yellow")
-    table.add_column("Measured", style="green")
+    table.add_column("Predicted Range", style="yellow")
+    table.add_column("Measured", style="bold")
+    table.add_column("Error %", justify="right")
+    table.add_column("In Range?", justify="center")
+
+    def fmt_err(err: float | None) -> str:
+        if err is None:
+            return "-"
+        sign = "+" if err > 0 else ""
+        return f"{sign}{err:.1f}%"
+
+    def fmt_within(within: bool | None) -> str:
+        if within is None:
+            return "-"
+        return "[green]✓ Yes[/green]" if within else "[red]✗ No[/red]"
 
     table.add_row(
         "Decode Speed",
         f"~{record.predicted_decode_low:.1f}–{record.predicted_decode_high:.1f} tok/s",
         f"{record.measured_decode_tok_s:.1f} tok/s",
+        fmt_err(record.decode_error_pct),
+        fmt_within(record.decode_within_predicted),
     )
     table.add_row(
         "Prefill Speed",
         f"~{record.predicted_prefill_low:.1f}–{record.predicted_prefill_high:.1f} tok/s",
         f"{record.measured_prefill_tok_s:.1f} tok/s",
+        fmt_err(record.prefill_error_pct),
+        fmt_within(record.prefill_within_predicted),
     )
-    table.add_row("Time to First Token (TTFT)", "-", f"{record.ttft_s:.3f} s")
-    table.add_row("Peak RAM RSS", "-", f"{record.peak_ram_rss_bytes / (1024**2):.1f} MB")
+    table.add_row("Time to First Token (TTFT)", "-", f"{record.ttft_s:.3f} s", "-", "-")
+    table.add_row(
+        "Peak RAM RSS",
+        "-",
+        f"{record.peak_ram_rss_bytes / (1024**2):.1f} MB",
+        "-",
+        "-",
+    )
 
     console.print(table)
-    new_factor = get_calibration_factor(str(model.resolve()))
+    new_factor = get_calibration_factor(
+        model_path=str(model.resolve()),
+        arch=record.arch,
+        quant=record.quant,
+        strategy=record.strategy,
+    )
     console.print(
         f"[dim]Saved to bench.jsonl. Active machine calibration factor: {new_factor:.2f}x[/dim]"
     )
+
+    if export:
+        report_data = {
+            "timestamp": record.timestamp,
+            "model": {
+                "name": model.name,
+                "path": str(model.resolve()),
+                "arch": record.arch,
+                "quant": record.quant,
+            },
+            "strategy": record.strategy,
+            "backend_version": record.backend_version,
+            "benchmark": record.model_dump(),
+            "active_calibration_factor": new_factor,
+        }
+        export.parent.mkdir(parents=True, exist_ok=True)
+        with open(export, "w", encoding="utf-8") as f:
+            json.dump(report_data, f, indent=2)
+        console.print(f"[green]Report exported to {export}[/green]")
 
 
 # CHAT & RUN

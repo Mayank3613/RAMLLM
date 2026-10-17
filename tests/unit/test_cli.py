@@ -1,7 +1,9 @@
 """Unit tests for the RAMLLM CLI commands using CliRunner."""
 
+import json
 from pathlib import Path
 
+import pytest
 from tests.fixtures.make_gguf import create_tiny_dense_gguf
 from typer.testing import CliRunner
 
@@ -171,3 +173,49 @@ def test_cli_models_list_json() -> None:
     res = runner.invoke(app, ["models", "list", "--json"])
     assert res.exit_code == 0
     assert res.stdout.strip().startswith("[")
+
+
+def test_cli_bench_export(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ramllm.telemetry.calibration import BenchmarkRecord
+
+    model_path = tmp_path / "test_model.gguf"
+    create_tiny_dense_gguf(model_path)
+    export_path = tmp_path / "report.json"
+
+    mock_rec = BenchmarkRecord(
+        schema_version=2,
+        timestamp="2026-10-17T12:00:00",
+        model_path=str(model_path),
+        plan_id="full_gpu_f16",
+        arch="llama",
+        quant="f16",
+        backend_version="0.6.0",
+        strategy="full_gpu",
+        predicted_decode_low=10.0,
+        predicted_decode_high=15.0,
+        measured_decode_tok_s=12.5,
+        predicted_prefill_low=50.0,
+        predicted_prefill_high=70.0,
+        measured_prefill_tok_s=60.0,
+        peak_ram_rss_bytes=1024**3,
+        ttft_s=0.1,
+        decode_within_predicted=True,
+        decode_error_pct=0.0,
+        prefill_within_predicted=True,
+        prefill_error_pct=0.0,
+    )
+
+    monkeypatch.setattr("ramllm.cli.app.run_benchmark", lambda **kwargs: mock_rec)
+
+    res = runner.invoke(app, ["bench", str(model_path), "--export", str(export_path)])
+    assert res.exit_code == 0
+    assert "In Range?" in res.stdout
+    assert "Error %" in res.stdout
+    assert "✓ Yes" in res.stdout
+    assert export_path.exists()
+
+    with open(export_path) as f:
+        data = json.load(f)
+    assert data["model"]["name"] == "test_model.gguf"
+    assert data["strategy"] == "full_gpu"
+    assert data["benchmark"]["measured_decode_tok_s"] == 12.5

@@ -11,12 +11,33 @@ from ramllm.core.analyzer.gguf import analyze_gguf
 from ramllm.core.governor.monitor import MemoryGovernor
 from ramllm.core.profiler import probe_hardware
 from ramllm.core.schemas import ExecutionPlan, UserRequest
-from ramllm.telemetry.calibration import BenchmarkRecord, append_benchmark_record
+from ramllm.telemetry.calibration import (
+    BenchmarkRecord,
+    append_benchmark_record,
+    compute_record_metrics,
+)
 
 BENCH_PROMPTS = [
     "Why is the sky blue? Answer in 25 words.",
     "Write a concise python function to calculate the fibonacci series up to N.",
 ]
+
+
+def infer_plan_strategy(plan: ExecutionPlan) -> str:
+    """Infer high-level placement strategy string from execution plan."""
+    if plan.placement.disk_streamed_layers:
+        return "disk_stream"
+    has_gpu = any(bool(layers) for layers in plan.placement.gpu_layers.values())
+    has_cpu = bool(plan.placement.cpu_layers)
+    if plan.placement.expert_placement == "cpu":
+        return "moe_cpu_experts"
+    if has_gpu and not has_cpu:
+        return "full_gpu"
+    if has_cpu and not has_gpu:
+        return "cpu_only"
+    if has_gpu and has_cpu:
+        return "split"
+    return "default"
 
 
 def run_benchmark(
@@ -99,10 +120,26 @@ def run_benchmark(
         decode_tok_s = (total_tokens / total_eval_time) if total_eval_time > 0 else 0.0
         prefill_tok_s = (1.0 / first_token_latency * 10) if first_token_latency > 0 else 0.0
 
+        dec_err, dec_within = compute_record_metrics(
+            chosen_plan.speed.decode_tok_s_low,
+            chosen_plan.speed.decode_tok_s_high,
+            round(decode_tok_s, 2),
+        )
+        pref_err, pref_within = compute_record_metrics(
+            chosen_plan.speed.prefill_tok_s_low,
+            chosen_plan.speed.prefill_tok_s_high,
+            round(prefill_tok_s, 2),
+        )
+
         record = BenchmarkRecord(
+            schema_version=2,
             timestamp=datetime.now().isoformat(),
             model_path=str(p),
             plan_id=chosen_plan.id,
+            arch=info.arch,
+            quant=info.quant,
+            backend_version=(install.version if (install and install.version) else "unknown"),
+            strategy=infer_plan_strategy(chosen_plan),
             predicted_decode_low=chosen_plan.speed.decode_tok_s_low,
             predicted_decode_high=chosen_plan.speed.decode_tok_s_high,
             measured_decode_tok_s=round(decode_tok_s, 2),
@@ -111,6 +148,10 @@ def run_benchmark(
             measured_prefill_tok_s=round(prefill_tok_s, 2),
             peak_ram_rss_bytes=peak_rss,
             ttft_s=round(first_token_latency, 3),
+            decode_error_pct=dec_err,
+            prefill_error_pct=pref_err,
+            decode_within_predicted=dec_within,
+            prefill_within_predicted=pref_within,
         )
 
         append_benchmark_record(record)
