@@ -7,7 +7,7 @@ from pathlib import Path
 repo_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(repo_root / "scripts"))
 
-from validate_predictions import (  # noqa: E402
+from validate_predictions import (  # type: ignore[import-not-found]  # noqa: E402
     compute_metrics_for_subset,
     generate_markdown_report,
 )

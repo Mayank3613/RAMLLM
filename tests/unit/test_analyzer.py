@@ -1,6 +1,7 @@
 """Unit tests for Model Analyzer, KV formulas, and MoE analysis."""
 
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from tests.fixtures.make_gguf import create_tiny_dense_gguf, create_tiny_moe_gguf
@@ -123,7 +124,7 @@ def test_kv_cache_formula_exact_regression() -> None:
         (48, 2048, 8, 64),
         (16, 16384, 2, 128),
     ]
-    quant_pairs = [
+    quant_pairs: list[tuple[Literal["f16", "q8_0", "q4_0"], Literal["f16", "q8_0", "q4_0"]]] = [
         ("f16", "f16"),
         ("q8_0", "q8_0"),
         ("q4_0", "q4_0"),
