@@ -244,6 +244,13 @@ def recommend(
     hw_json: Annotated[
         Path | None, typer.Option("--hw-json", help="Synthetic hardware profile")
     ] = None,
+    cross_check_fit: Annotated[
+        bool,
+        typer.Option(
+            "--cross-check-fit",
+            help="Cross-check execution plan against upstream llama.cpp -fit advisory",
+        ),
+    ] = False,
 ) -> None:
     """Recommend the best-quality models that fit within hardware budgets (offline catalog)."""
     console = get_console()
@@ -367,6 +374,13 @@ def plan(
     hw_json: Annotated[
         Path | None, typer.Option("--hw-json", help="Synthetic hardware profile")
     ] = None,
+    cross_check_fit: Annotated[
+        bool,
+        typer.Option(
+            "--cross-check-fit",
+            help="Cross-check execution plan against upstream llama.cpp -fit advisory",
+        ),
+    ] = False,
 ) -> None:
     """Plan model execution strategy given hardware constraints and memory budgets."""
     console = get_console()
@@ -417,6 +431,12 @@ def plan(
 
     if as_json:
         data = [p.model_dump(mode="json") for p in plans]
+        if cross_check_fit:
+            from ramllm.services.fit_service import run_fit_cross_check
+
+            fit_res = run_fit_cross_check(resolved_model, ctx_len, plans[0])
+            for d in data:
+                d["fit_cross_check"] = fit_res.__dict__
         typer.echo(json.dumps(data, indent=2))
         return
 
@@ -474,6 +494,12 @@ def plan(
                     console.print(f"  [yellow]• {w}[/yellow]")
     else:
         console.print(f"[dim]More detail: ramllm plan {model} --details[/dim]")
+
+    if cross_check_fit:
+        from ramllm.services.fit_service import render_fit_comparison_table, run_fit_cross_check
+
+        fit_res = run_fit_cross_check(resolved_model, ctx_len, plans[0])
+        render_fit_comparison_table(fit_res, console)
 
 
 @app.command(rich_help_panel="MODELS")

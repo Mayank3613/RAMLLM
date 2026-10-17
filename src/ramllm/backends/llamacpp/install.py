@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+from pathlib import Path
 
 from ramllm.backends.base import BackendInstall, Capabilities
 
@@ -44,6 +45,32 @@ def detect_llamacpp(custom_path: str | None = None) -> BackendInstall | None:
     has_override_tensor = "-ot" in help_text or "--override-tensor" in help_text
     has_split_mode = "-sm" in help_text or "--split-mode" in help_text
     has_flash_attn = "-fa" in help_text or "--flash-attn" in help_text
+    has_fit = "-fit" in help_text or "--fit" in help_text
+
+    # Search for llama-fit-params
+    fit_params_path: str | None = None
+    if custom_path:
+        p_cust = Path(custom_path).parent
+        for candidate_name in ("llama-fit-params", "llama-fit-params.exe"):
+            p_cand = p_cust / candidate_name
+            if p_cand.is_file():
+                fit_params_path = str(p_cand.resolve())
+                break
+
+    if not fit_params_path and binary:
+        p_bin = Path(binary).parent
+        for candidate_name in ("llama-fit-params", "llama-fit-params.exe"):
+            p_cand = p_bin / candidate_name
+            if p_cand.is_file():
+                fit_params_path = str(p_cand.resolve())
+                break
+
+    if not fit_params_path:
+        found = shutil.which("llama-fit-params")
+        if found:
+            fit_params_path = str(Path(found).resolve())
+
+    has_fit_params = fit_params_path is not None
 
     apis: list[str] = []
     if "metal" in help_text.lower() or "metal" in (build_info or "").lower():
@@ -64,6 +91,9 @@ def detect_llamacpp(custom_path: str | None = None) -> BackendInstall | None:
         flash_attention=has_flash_attn,
         mmap_control=True,
         apis=apis,
+        supports_fit=has_fit,
+        has_fit_params=has_fit_params,
+        fit_params_binary_path=fit_params_path,
     )
 
     return BackendInstall(

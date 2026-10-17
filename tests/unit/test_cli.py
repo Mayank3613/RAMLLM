@@ -219,3 +219,24 @@ def test_cli_bench_export(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert data["model"]["name"] == "test_model.gguf"
     assert data["strategy"] == "full_gpu"
     assert data["benchmark"]["measured_decode_tok_s"] == 12.5
+
+
+def test_cli_plan_cross_check_fit(tmp_path: Path) -> None:
+    model_path = tmp_path / "tiny_dense_fit.gguf"
+    create_tiny_dense_gguf(model_path)
+    hw_path = "tests/fixtures/hardware/laptop_16gb_gpu_6gb.json"
+
+    res = runner.invoke(
+        app,
+        [
+            "plan",
+            str(model_path),
+            "--hw-json",
+            hw_path,
+            "--cross-check-fit",
+        ],
+    )
+    assert res.exit_code == 0
+    assert "llama.cpp -fit Cross-Check Comparison" in res.stdout
+    assert "GPU Offload" in res.stdout
+    assert "Speed Forecast" in res.stdout

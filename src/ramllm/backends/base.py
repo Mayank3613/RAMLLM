@@ -24,6 +24,9 @@ class Capabilities(BaseModel):
     async_weight_streaming: bool = False
     expert_level_eviction: bool = False
     apis: list[str] = Field(default_factory=list)
+    supports_fit: bool = False
+    has_fit_params: bool = False
+    fit_params_binary_path: str | None = None
 
 
 class BackendInstall(BaseModel):

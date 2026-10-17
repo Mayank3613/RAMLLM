@@ -136,28 +136,31 @@ Below is a measured vs. predicted benchmark comparison across representative rea
 
 ---
 
-## RAMLLM vs. Ollama, LM Studio, and llama.cpp
+## RAMLLM vs. llama.cpp -fit, Ollama, and LM Studio
 
-RAMLLM is designed to eliminate blind trial-and-error and out-of-memory lockups in local inference. Here is an objective comparison:
+RAMLLM is designed to eliminate blind trial-and-error and out-of-memory lockups in local inference. Here is an objective capability comparison:
 
-| Capability / Dimension | `llama.cpp` (native) | Ollama | LM Studio | **RAMLLM** |
-| :--- | :--- | :--- | :--- | :--- |
-| **Architectural Role** | Raw C++ inference engine | Developer CLI daemon & packaging | Desktop GUI application | **Hardware planner, cost modeler & OS memory supervisor** |
-| **Relationship to llama.cpp** | The engine itself | Bundled fork/engine | Bundled engine | **Supervises & drives official llama.cpp** |
-| **Pre-Run Topology Inspection** | No (reads during load) | No (coarse rule of thumb) | No (manual slider guess) | **Yes (reads GGUF metadata & computes exact byte transfers)** |
-| **Predicted tok/s & Bottlenecks** | No | No | No | **Yes (speed range forecast & named bottleneck)** |
-| **Layer Split Optimization** | Partial (manual trial-and-error `-ngl`) | Partial (all-or-nothing / coarse heuristic) | Partial (manual slider) | **Yes (mathematically optimal per-layer placement)** |
-| **KV-Cache Quantization** | Yes (manual flags `-ctk`, `-ctv`) | No (fixed / unexposed) | Partial (limited manual settings) | **Yes (automatic budget-aware KV quant `q8_0`/`q4_0`)** |
-| **MoE Expert Partitioning** | Yes (manual `-cmoe`) | No (all-or-nothing) | No (not exposed) | **Yes (automatic attention-in-VRAM / experts-in-RAM planning)** |
-| **Active Memory Governor** | No (crashes on OOM) | No (OS paging freezes) | No (crashes on OOM) | **Yes (real-time 1 Hz OS headroom monitor & auto-recovery)** |
-| **Dynamic Runtime Replanning** | No (requires server restart) | No (requires server restart) | No (requires server restart) | **Yes (dynamic `/ramllm/replan` API)** |
-| **Execution Interface** | CLI flags & `llama-server` | CLI & REST daemon | Electron Desktop App | **Rich CLI, Guided Wizard, Textual TUI & OpenAI API** |
-| **Telemetry & Privacy** | 100% offline | Anonymous telemetry enabled | Closed-source core | **100% offline, zero telemetry, Apache 2.0** |
+| Capability / Dimension | `llama.cpp` (native) | `llama.cpp -fit` | Ollama | LM Studio | **RAMLLM** |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Architectural Role** | Raw inference engine | Startup parameter fitter | Developer CLI & daemon | Desktop GUI application | **Hardware planner, cost modeler & OS memory supervisor** |
+| **Relationship to llama.cpp** | The engine itself | Subcommand in llama.cpp | Bundled fork/engine | Bundled engine | **Supervises & drives official llama.cpp** |
+| **Pre-Run Topology Inspection** | No (reads on load) | Static VRAM probe | No (coarse heuristic) | No (manual slider guess) | **Yes (reads GGUF metadata & models memory bus transfer)** |
+| **Predicted tok/s & Bottlenecks** | No | No (speed blind) | No | No | **Yes (speed range forecast & named bottleneck)** |
+| **Slowness Verdicts & Tolerances** | No | No (fits at any speed) | No | No | **Yes (`COMFORTABLE`, `CONSTRAINED`, `BATCH_ONLY`, `--min-tps`)** |
+| **Layer Split Optimization** | Manual trial (`-ngl`) | Downscales `-ngl` to fit | Coarse all-or-nothing | Manual slider | **Yes (mathematically optimal per-layer placement)** |
+| **KV-Cache Quantization** | Manual flags (`-ctk`) | Defaults to FP16 | Fixed / unexposed | Limited manual settings | **Yes (automatic budget-aware KV quant `q8_0`/`q4_0`)** |
+| **MoE Expert Partitioning** | Manual (`-cmoe`) | No MoE CPU split | All-or-nothing | Not exposed | **Yes (automatic attention-in-VRAM / experts-in-RAM planning)** |
+| **Active Memory Governor** | No (crashes on OOM) | No (static at boot) | No (OS paging freezes) | No (crashes on OOM) | **Yes (real-time 1 Hz OS headroom monitor & auto-recovery)** |
+| **Empirical Calibration** | No | No | No | No | **Yes (multi-tier stratified empirical benchmark calibration)** |
+| **Cross-Check Advisory** | N/A | N/A | No | No | **Yes (live `ramllm plan --cross-check-fit` comparison)** |
 
 ### How RAMLLM Fits In:
-- **vs. llama.cpp:** RAMLLM does **not** compete with or replace llama.cpp. Rather, RAMLLM is a high-level manager that *drives* llama.cpp for you. Instead of guessing how many layers (`-ngl`) fit before crashing CUDA, RAMLLM profiles your exact memory, checks headroom, picks the best flags, and monitors memory while it runs.
+- **vs. llama.cpp `-fit` & `llama-fit-params`:** Upstream `-fit` iteratively downscales unset parameters (`-ngl`, `-c`) to fit within available VRAM at startup. However, `-fit` is **speed-blind**: it cannot tell whether a fitting split will run at 25 tok/s or grind to a halt at 0.8 tok/s over PCIe. RAMLLM forward-models memory bandwidth and compute latency, warns when plans violate slowness thresholds, auto-quantizes KV-cache, and supervises memory live with an active governor. You can cross-check RAMLLM against `-fit` anytime via `ramllm plan <model> --cross-check-fit`.
+- **vs. llama.cpp (native):** RAMLLM does **not** compete with or replace llama.cpp. Rather, RAMLLM is a high-level manager that *drives* llama.cpp for you. Instead of guessing how many layers (`-ngl`) fit before crashing CUDA, RAMLLM profiles your exact memory, checks headroom, picks the best flags, and monitors memory while it runs.
 - **vs. Ollama:** Ollama is an excellent developer tool for running models with simple commands. However, Ollama uses coarse heuristics: if a model doesn't fit in VRAM, it often silently dumps execution onto pure CPU (dropping speed from 35 tok/s to 0.5 tok/s without warning) or induces OS swap thrashing. RAMLLM tells you the honest speed *before* downloading and actively guards system memory from freezing.
 - **vs. LM Studio:** LM Studio provides a sleek desktop GUI for visual experimentation. However, LM Studio requires manual trial-and-error slider adjustment for GPU offloading, consumes extra RAM for its Electron GUI shell, and lacks analytical bandwidth cost modeling, automated KV-cache budgeting, and headless scripting automation.
+
+For full technical details, see [docs/positioning.md](docs/positioning.md).
 
 ---
 

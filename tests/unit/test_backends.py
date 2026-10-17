@@ -88,3 +88,42 @@ def test_llamacpp_detection_and_flag_building() -> None:
     plan_moe = _make_sample_plan(ngl=32, cpu_moe=True)
     args_moe = adapter.build_args(plan_moe, port=8088)
     assert "-cmoe" in args_moe
+
+
+def test_backend_fit_capabilities() -> None:
+    from ramllm.backends.base import Capabilities
+
+    caps = Capabilities(
+        supports_fit=True, has_fit_params=True, fit_params_binary_path="/path/to/llama-fit-params"
+    )
+    assert caps.supports_fit is True
+    assert caps.has_fit_params is True
+    assert caps.fit_params_binary_path == "/path/to/llama-fit-params"
+
+
+def test_detect_llamacpp_with_fit(monkeypatch) -> None:
+    import subprocess
+
+    from ramllm.backends.llamacpp.install import detect_llamacpp
+
+    monkeypatch.setattr("shutil.which", lambda cmd: "/bin/" + cmd)
+
+    class DummyProc:
+        def __init__(self, stdout: str):
+            self.stdout = stdout
+            self.stderr = ""
+            self.returncode = 0
+
+    def mock_run(cmd, *args, **kwargs):
+        if "--version" in cmd:
+            return DummyProc("version: 0.6.0 (build 11429)")
+        if "--help" in cmd:
+            return DummyProc("-ngl, --gpu-layers N\n-fit, --fit [on|off]\n-ctk TYPE\n")
+        return DummyProc("")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    install = detect_llamacpp("/bin/llama-server")
+    assert install is not None
+    assert install.capabilities.supports_fit is True
+    assert install.capabilities.has_fit_params is True
