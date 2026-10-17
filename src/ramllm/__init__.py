@@ -8,7 +8,7 @@ from ramllm.core.planner import create_execution_plans
 from ramllm.core.profiler import probe_hardware
 from ramllm.core.schemas import ExecutionPlan, HardwareProfile, ModelInfo, UserRequest
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 __all__ = [
     "ExecutionPlan",
