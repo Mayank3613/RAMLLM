@@ -446,8 +446,13 @@ def plan(
     console.print(f"[dim]{budget.explanation}[/dim]\n")
 
     if details or explain or plans[0].verdict == "INFEASIBLE":
+        weight_desc = (
+            f"Total: {model_info.total_weight_bytes / (1024**3):.1f} GB resident, Active: {model_info.active_weight_bytes / (1024**3):.1f} GB/tok"
+            if model_info.is_moe
+            else f"{model_info.total_weight_bytes / (1024**3):.1f} GB"
+        )
         table = Table(
-            title=f"Execution Plans for {resolved_model.name} ({model_info.total_weight_bytes / (1024**3):.1f} GB)",
+            title=f"Execution Plans for {resolved_model.name} ({weight_desc})",
             box=box.ROUNDED,
         )
         table.add_column("Rank", style="bold cyan", width=6)

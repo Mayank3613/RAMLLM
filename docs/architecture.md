@@ -67,7 +67,13 @@ RAMLLM is an open-source, RAM-adaptive and GPU-aware inference manager. It decou
 - Mock adapter: deterministic test harness for unit, integration, and CI testing.
 
 ### 2.5 Memory Governor (`core/governor/`)
-- Stage A: Continuous sampling of process RSS, system free memory, and VRAM; checks actual allocations against plan predictions.
-- Stage B: Operating system level limits (Linux cgroups v2, Windows Job Objects).
-- Stage C: Reactive adaptation to memory pressure and out-of-memory errors (auto-retry with smaller plan).
-- Stage D (Future): Fine-grained weight eviction (`madvise` / custom streaming).
+- **Stage A (Live Telemetry):** Continuous sampling of process RSS, system free memory, and VRAM at 1 Hz; checks actual allocations against plan predictions.
+- **Stage B (OS-Level Kernel Enforcement):**
+  - **Linux:** Hardware/kernel enforcement using **cgroups v2** (`memory.max`, `memory.high`).
+  - **Windows:** Process enforcement via **Windows Job Objects** (`JOB_OBJECT_LIMIT_PROCESS_MEMORY`).
+  - **macOS (Darwin):** Soft monitoring and proactive software tiered recovery. The Darwin kernel does not provide unprivileged per-process cgroup controls; RAMLLM monitors process RSS via Mach/POSIX APIs and triggers proactive mitigation before macOS kernel compressor/swapper freezes the system.
+- **Stage C (Reactive Tiered Recovery & Replanning):** Automated multi-step plan downgrade upon OOM or resource starvation:
+  - *GPU OOM:* Offload MoE routed experts to CPU (`-cmoe`) -> reduce GPU layers (~25-50%) -> quantize KV cache (`f16` -> `q8_0` -> `q4_0`) -> drop to pure CPU fallback.
+  - *Host RAM OOM:* Preserve GPU layers (to avoid flooding system RAM with model weights) -> quantize KV cache -> shrink context window towards `min_context`.
+  - *Driver Loss:* Fall back immediately to pure CPU execution.
+- **Stage D (Dynamic Replanning):** Zero-downtime reconfiguration via `/ramllm/replan` API endpoint or interactive `/replan` chat commands without requiring full process restarts.

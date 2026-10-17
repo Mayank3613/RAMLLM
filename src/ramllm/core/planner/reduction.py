@@ -138,8 +138,27 @@ def get_reduced_plan(
     new_expert_placement = curr_moe_expert_placement
     action_notes: list[str] = []
 
+    # Strategy 2: Host RAM OOM - relieve RAM without offloading GPU weights to RAM
+    if failure_type in ("ram_oom", "host_oom"):
+        if req.allow_kv_quant and new_kv_type == "f16":
+            new_kv_type = "q8_0"
+            action_notes.append("Quantized KV cache to q8_0 to relieve host RAM")
+        elif req.allow_kv_quant and new_kv_type == "q8_0":
+            new_kv_type = "q4_0"
+            action_notes.append("Quantized KV cache to q4_0 to relieve host RAM")
+        elif new_ctx > req.min_context:
+            new_ctx = max(req.min_context, new_ctx // 2)
+            action_notes.append(f"Halved context length to {new_ctx} to relieve host RAM")
+        elif new_ctx > 512:
+            new_ctx = max(512, new_ctx // 2)
+            action_notes.append(
+                f"Shrunk context window below minimum to {new_ctx} to relieve host RAM"
+            )
+        else:
+            return None
+
     # Step A: If MoE and experts are still on GPU, offload routed experts to CPU first
-    if model.is_moe and new_expert_placement != "cpu" and failure_type == "gpu_oom":
+    elif model.is_moe and new_expert_placement != "cpu" and failure_type == "gpu_oom":
         new_expert_placement = "cpu"
         action_notes.append("Offloaded MoE routed experts to CPU (-cmoe)")
 

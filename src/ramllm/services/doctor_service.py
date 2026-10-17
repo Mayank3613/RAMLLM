@@ -113,7 +113,16 @@ def run_diagnostics() -> list[DiagnosticItem]:
                 category="OS & Enforcement",
                 title="Memory Governor Enforcement",
                 severity="ok",
-                detail=f"{enf.mechanism} active ({enf.detail})",
+                detail=f"Hard Kernel Enforcement active ({enf.mechanism}: {enf.detail})",
+            )
+        )
+    elif enf.platform == "darwin":
+        items.append(
+            DiagnosticItem(
+                category="OS & Enforcement",
+                title="Memory Governor Enforcement",
+                severity="notice",
+                detail="Soft monitoring only — macOS lacks kernel cgroups; RAMLLM uses 1 Hz RSS sampling and proactive tiered recovery.",
             )
         )
     elif enf.supported:
@@ -122,7 +131,8 @@ def run_diagnostics() -> list[DiagnosticItem]:
                 category="OS & Enforcement",
                 title="Memory Governor Enforcement",
                 severity="notice",
-                detail=f"{enf.mechanism} supported ({enf.detail})",
+                detail=f"{enf.mechanism} supported but unprivileged ({enf.detail})",
+                fix_suggestion="Grant write permissions to cgroup directory to enable hard kernel limits",
             )
         )
     else:

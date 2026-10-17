@@ -78,6 +78,28 @@ class ModelInfo(BaseModel):
     is_hybrid_ssm: bool = False
     ssm_d_state: int | None = None
 
+    @property
+    def active_weight_bytes(self) -> int:
+        """Active weights evaluated per decode token (sparse routed experts for MoE, total for dense)."""
+        if not self.is_moe or not self.n_experts or not self.n_experts_used:
+            return self.total_weight_bytes
+
+        expert_bytes = sum(self.expert_bytes_per_layer) if self.expert_bytes_per_layer else 0
+        shared_bytes = (
+            sum(self.shared_expert_bytes_per_layer) if self.shared_expert_bytes_per_layer else 0
+        )
+        base_weights = self.total_weight_bytes - expert_bytes - shared_bytes
+        active_expert_bytes = int(expert_bytes * (self.n_experts_used / self.n_experts))
+        return base_weights + shared_bytes + active_expert_bytes
+
+    @property
+    def active_params(self) -> int:
+        """Active parameters evaluated per decode token."""
+        if not self.is_moe or not self.n_experts or not self.n_experts_used:
+            return self.n_params
+        expert_fraction = self.n_experts_used / self.n_experts
+        return int(self.n_params * expert_fraction)
+
 
 class UserRequest(BaseModel):
     """User-specified execution constraints and performance preferences."""

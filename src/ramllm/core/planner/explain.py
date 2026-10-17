@@ -54,7 +54,13 @@ def explain_plan(
     # 2. MoE explanation
     if model.is_moe and placement.expert_placement == "cpu":
         lines.append(
-            f"MoE Optimized Placement: Attention & shared weights on GPU; {model.n_experts} routed experts placed in CPU RAM."
+            f"MoE Optimized Placement: Attention & shared weights on GPU; {model.n_experts} routed experts placed in CPU RAM "
+            f"(Total resident: {model.total_weight_bytes / (1024**3):.1f} GB, Active decode weights: {model.active_weight_bytes / (1024**3):.1f} GB)."
+        )
+    elif model.is_moe:
+        lines.append(
+            f"MoE Architecture: Total resident: {model.total_weight_bytes / (1024**3):.1f} GB, "
+            f"Active decode weights: {model.active_weight_bytes / (1024**3):.1f} GB ({model.n_experts_used} of {model.n_experts} active experts)."
         )
 
     # 3. KV cache explanation

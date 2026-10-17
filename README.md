@@ -228,7 +228,15 @@ See the comprehensive [feature matrix and architecture breakdown above](#ramllm-
 - **CPU-only fallback** with optimized AVX2 / AVX-512 SIMD vector extensions
 
 ### What happens if my computer runs low on memory?
-RAMLLM's Memory Governor continuously samples memory headroom. If external apps (like browser tabs or IDEs) consume memory, RAMLLM automatically intervenes, downscaling context or adapting placement strategies before your system can freeze.
+RAMLLM's Memory Governor continuously samples memory headroom and enforces safety according to host OS capabilities:
+- **Linux:** Enforces hard kernel-level bounds using **cgroups v2** (`memory.max` and `memory.high`).
+- **Windows:** Enforces hard process limits via **Windows Job Objects** (`JOB_OBJECT_LIMIT_PROCESS_MEMORY`).
+- **macOS:** Operates in proactive **soft monitoring mode** (1 Hz RSS sampling and tiered auto-recovery), because the Darwin kernel does not provide unprivileged per-process cgroup limits.
+
+If external apps (like browser tabs or IDEs) consume memory, RAMLLM automatically intervenes, downscaling context or adapting placement strategies before your system can freeze.
+
+### How does RAMLLM handle large Mixture-of-Experts (MoE) models?
+MoE models like Mixtral 8x7B (47 GB) or Qwen1.5-MoE have large *total resident weights* but only activate a fraction of experts per token during decode (*active decode weights*, ~13 GB). RAMLLM clearly distinguishes between total resident footprint and per-token active working set in its plans, keeping dense attention layers in fast GPU VRAM while streaming sparse routed experts from system RAM without exceeding memory thresholds.
 
 ### Can I use my own GGUF model files?
 **Yes.** Register any existing local GGUF file with:

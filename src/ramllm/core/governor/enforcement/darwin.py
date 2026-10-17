@@ -17,13 +17,19 @@ class NullEnforcementManager(EnforcementManager):
 
     def get_status(self) -> EnforcementStatus:
         if self._platform_name == "darwin":
-            detail = "macOS memory pressure dispatch supported (soft limits & active monitoring)."
+            detail = (
+                "macOS lacks OS kernel-level cgroups / Job Objects. "
+                "RAMLLM enforces soft limits via 1 Hz process RSS polling and proactive "
+                "software tiered recovery rather than OS-enforced hard limits."
+            )
+            mech = "Software Polling (1 Hz) & Tiered Recovery"
         else:
-            detail = f"{self._platform_name.capitalize()} hard limits unavailable (soft monitoring only)."
+            detail = f"{self._platform_name.capitalize()} hard limits unavailable (soft monitoring & reactive recovery only)."
+            mech = "Software Polling"
 
         return EnforcementStatus(
             platform=self._platform_name,
-            mechanism="soft monitoring",
+            mechanism=mech,
             supported=False,
             can_enforce=False,
             detail=detail,

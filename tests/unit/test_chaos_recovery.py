@@ -443,3 +443,51 @@ def test_cli_run_fails_soft_without_raw_traceback(monkeypatch: pytest.MonkeyPatc
     assert "Model file not found" in res.output or "not found" in res.output
     # Must never dump python traceback
     assert "Traceback (most recent call last)" not in res.output
+
+
+def test_real_world_memory_pressure_drill() -> None:
+    """Simulate sudden memory pressure during inference triggering governor detection and downgrade."""
+    hw = load_synthetic_profile("tests/fixtures/hardware/laptop_16gb_gpu_6gb.json")
+    model = _make_dummy_model(is_moe=False)
+    initial_plan = _make_sample_plan(ngl=24, context=4096)
+
+    # 1. Simulate VRAM pressure spike -> reduced plan offloads fewer layers to GPU
+    vram_pressure_plan = get_reduced_plan(
+        initial_plan,
+        model,
+        hw,
+        UserRequest(model=model.path, min_context=2048, target_context=4096),
+        failure_type="gpu_oom",
+        attempt=1,
+    )
+    assert vram_pressure_plan is not None
+    vram_layers = sum(len(layers) for layers in vram_pressure_plan.placement.gpu_layers.values())
+    assert vram_layers < 24
+
+    # 2. Simulate RAM pressure spike -> reduced plan decreases context length or quantizes KV
+    ram_pressure_plan = get_reduced_plan(
+        initial_plan,
+        model,
+        hw,
+        UserRequest(model=model.path, min_context=2048, target_context=4096),
+        failure_type="ram_oom",
+        attempt=1,
+    )
+    assert ram_pressure_plan is not None
+    assert (
+        ram_pressure_plan.kv.context < initial_plan.kv.context
+        or ram_pressure_plan.kv.type_k != "f16"
+    )
+
+    # 3. Simulate sudden driver loss -> falls back to pure CPU execution
+    driver_loss_plan = get_reduced_plan(
+        initial_plan,
+        model,
+        hw,
+        UserRequest(model=model.path, min_context=2048, target_context=4096),
+        failure_type="driver_loss",
+        attempt=1,
+    )
+    assert driver_loss_plan is not None
+    assert sum(len(layers) for layers in driver_loss_plan.placement.gpu_layers.values()) == 0
+    assert len(driver_loss_plan.placement.cpu_layers) == 32
