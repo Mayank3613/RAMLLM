@@ -94,10 +94,21 @@ def find_free_loopback_port() -> int:
 
 
 def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
-    """Check if the given port is already actively listening on host."""
+    """Check if the given port is already in use (bound or actively listening)."""
+    # First, test if the port can be bound
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(0.3)
-        return s.connect_ex((host, port)) == 0
+        try:
+            s.bind((host, port))
+        except OSError:
+            return True
+
+    # Second, test if an active service is reachable
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        try:
+            return s.connect_ex((host, port)) == 0
+        except OSError:
+            return False
 
 
 def launch_llamacpp_server(
