@@ -8,9 +8,10 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
+from ramllm.api.web_ui import FAVICON_SVG, get_web_ui_html
 from ramllm.backends import LlamaCppAdapter
 from ramllm.backends.base import BackendAdapter, BackendProcess
 from ramllm.core.analyzer.gguf import analyze_gguf
@@ -117,7 +118,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 api_app = FastAPI(
     title="RAMLLM Server",
     description="OpenAI-compatible LLM inference server with strict RAM/VRAM budget governor.",
-    version="0.2.0",
+    version="0.2.1",
     lifespan=lifespan,
 )
 
@@ -146,7 +147,7 @@ async def security_and_cors_middleware(
     # Check authentication if API key is configured
     if state.api_key:
         path = request.url.path
-        if path not in ("/healthz", "/docs", "/openapi.json", "/redoc"):
+        if path not in ("/healthz", "/docs", "/openapi.json", "/redoc", "/", "/ui", "/favicon.ico"):
             auth_hdr = request.headers.get("Authorization", "")
             key_hdr = request.headers.get("X-API-Key", "")
             token = ""
@@ -183,6 +184,21 @@ async def security_and_cors_middleware(
 async def healthz() -> dict[str, str]:
     """Liveness check endpoint."""
     return {"status": "ok"}
+
+
+@api_app.get("/", response_class=HTMLResponse)
+@api_app.get("/ui", response_class=HTMLResponse)
+async def web_ui_root() -> HTMLResponse:
+    """Serve interactive RAMLLM Studio Web UI."""
+    model_name = state.model_path.split("/")[-1] if state.model_path else "RAMLLM Model"
+    arch = state.model_info.arch if state.model_info else "GGUF"
+    return HTMLResponse(content=get_web_ui_html(model_name=model_name, arch=arch))
+
+
+@api_app.get("/favicon.ico")
+async def favicon() -> Response:
+    """Serve RAMLLM SVG favicon."""
+    return Response(content=FAVICON_SVG, media_type="image/svg+xml")
 
 
 @api_app.get("/ramllm/plan")
@@ -278,6 +294,29 @@ async def list_models_api() -> dict[str, Any]:
     }
 
 
+@api_app.get("/v1/chat/completions")
+async def get_chat_completions(request: Request) -> Response:
+    """Handle browser navigation or GET requests to /v1/chat/completions."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return RedirectResponse(url="/", status_code=303)
+    return JSONResponse(
+        status_code=405,
+        content={
+            "error": {
+                "message": (
+                    "The /v1/chat/completions endpoint requires HTTP POST. "
+                    "To chat interactively in your browser, visit http://127.0.0.1:8080/ "
+                    "or view API documentation at /docs."
+                ),
+                "type": "invalid_request_error",
+                "param": None,
+                "code": "method_not_allowed",
+            }
+        },
+    )
+
+
 @api_app.post("/v1/chat/completions")
 async def chat_completions(request: Request) -> Response:
     """OpenAI-compatible chat completions proxy with streaming SSE support."""
@@ -308,6 +347,29 @@ async def chat_completions(request: Request) -> Response:
             return JSONResponse(status_code=resp.status_code, content=resp.json())
         finally:
             await client.aclose()
+
+
+@api_app.get("/v1/completions")
+async def get_completions(request: Request) -> Response:
+    """Handle browser navigation or GET requests to /v1/completions."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return RedirectResponse(url="/", status_code=303)
+    return JSONResponse(
+        status_code=405,
+        content={
+            "error": {
+                "message": (
+                    "The /v1/completions endpoint requires HTTP POST. "
+                    "To chat interactively in your browser, visit http://127.0.0.1:8080/ "
+                    "or view API documentation at /docs."
+                ),
+                "type": "invalid_request_error",
+                "param": None,
+                "code": "method_not_allowed",
+            }
+        },
+    )
 
 
 @api_app.post("/v1/completions")

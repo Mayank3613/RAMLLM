@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-10-18
+
+### Added
+- **Interactive RAMLLM Studio Web UI (`GET /`, `/ui`):**
+  - Modern, zero-dependency browser interface for interactive chat with loaded models (`/v1/chat/completions` streaming SSE).
+  - Real-time Memory Governor HUD monitoring Host RAM RSS and GPU VRAM usage against hard budgets.
+  - Interactive inference parameter controls (temperature, max tokens, system prompt).
+  - API integration cheat sheet with ready-to-copy snippets for `cURL`, `Python (OpenAI SDK)`, and `JavaScript`.
+  - Built-in SVG favicon (`GET /favicon.ico`) preventing browser 404 console logs.
+- **Graceful Browser Routing & Redirects:**
+  - `GET /v1/chat/completions` and `GET /v1/completions` automatically redirect web browsers (`Accept: text/html`) to the RAMLLM Studio Web UI (`/`).
+  - Programmatic API clients sending `GET` receive an OpenAI-standard descriptive error payload clarifying the required `POST` method.
+- **Enhanced `ramllm serve` Console Output:**
+  - Clear distinction between the interactive Web UI (`http://127.0.0.1:8080/`), API Docs (`/docs`), and programmatic OpenAI endpoints (`POST /v1/chat/completions`).
+- **Comprehensive Server & API Troubleshooting Guide:**
+  - Added dedicated solutions in `docs/troubleshooting.md` for browser 405 Method Not Allowed and 404 Not Found errors.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added

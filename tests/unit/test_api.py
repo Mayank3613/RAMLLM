@@ -167,3 +167,78 @@ def test_cors_middleware() -> None:
         assert "Access-Control-Allow-Origin" not in resp_disallowed.headers
     finally:
         state.cors_origins = []
+
+
+def test_web_ui_and_favicon_endpoints() -> None:
+    """Verify that root and favicon return HTML Web UI and SVG respectively."""
+    # Test GET /
+    resp_root = client.get("/")
+    assert resp_root.status_code == 200
+    assert "text/html" in resp_root.headers.get("content-type", "")
+    assert "RAMLLM Studio" in resp_root.text
+
+    # Test GET /ui
+    resp_ui = client.get("/ui")
+    assert resp_ui.status_code == 200
+    assert "text/html" in resp_ui.headers.get("content-type", "")
+
+    # Test GET /favicon.ico
+    resp_fav = client.get("/favicon.ico")
+    assert resp_fav.status_code == 200
+    assert "image/svg+xml" in resp_fav.headers.get("content-type", "")
+    assert "<svg" in resp_fav.text
+
+
+def test_chat_completions_get_handling() -> None:
+    """Verify GET /v1/chat/completions redirects browsers to UI and gives helpful JSON to API clients."""
+    # Browser GET request with Accept: text/html
+    resp_browser = client.get(
+        "/v1/chat/completions",
+        headers={"Accept": "text/html,application/xhtml+xml"},
+        follow_redirects=False,
+    )
+    assert resp_browser.status_code == 303
+    assert resp_browser.headers.get("location") == "/"
+
+    # API client GET request without text/html
+    resp_api = client.get(
+        "/v1/chat/completions",
+        headers={"Accept": "application/json"},
+    )
+    assert resp_api.status_code == 405
+    data = resp_api.json()
+    assert "error" in data
+    assert "requires HTTP POST" in data["error"]["message"]
+
+
+def test_completions_get_handling() -> None:
+    """Verify GET /v1/completions redirects browsers to UI and gives helpful JSON to API clients."""
+    resp_browser = client.get(
+        "/v1/completions",
+        headers={"Accept": "text/html,application/xhtml+xml"},
+        follow_redirects=False,
+    )
+    assert resp_browser.status_code == 303
+    assert resp_browser.headers.get("location") == "/"
+
+    resp_api = client.get(
+        "/v1/completions",
+        headers={"Accept": "application/json"},
+    )
+    assert resp_api.status_code == 405
+    data = resp_api.json()
+    assert "error" in data
+    assert "requires HTTP POST" in data["error"]["message"]
+
+
+def test_api_key_allows_web_ui() -> None:
+    """Verify that Web UI and favicon are accessible even when API key authentication is enabled."""
+    state.api_key = "secret-ramllm-test-key"
+    try:
+        resp_root = client.get("/")
+        assert resp_root.status_code == 200
+
+        resp_fav = client.get("/favicon.ico")
+        assert resp_fav.status_code == 200
+    finally:
+        state.api_key = None

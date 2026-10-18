@@ -299,3 +299,49 @@ Debug logs are automatically written to `<data_dir>/logs/ramllm.log`.
      ```bash
      ramllm config edit
      ```
+
+---
+
+## Server & API Troubleshooting
+
+### Browser Shows `405 Method Not Allowed` on `/v1/chat/completions`
+- **Cause:** Clicking or opening `http://127.0.0.1:8080/v1/chat/completions` in a web browser issues an HTTP `GET` request. In accordance with the OpenAI specification, `/v1/chat/completions` is strictly an HTTP `POST` endpoint that accepts JSON payloads with prompt messages.
+- **Remedies:**
+  1. **Use the Web UI:** Open the interactive chat interface directly in your browser:
+     - `http://127.0.0.1:8080/` (or `/ui`)
+     *(Note: Navigating to `/v1/chat/completions` in your browser now automatically redirects you to the Web UI).*
+  2. **Interactive API Documentation:** Test and execute API calls directly from Swagger UI:
+     - `http://127.0.0.1:8080/docs`
+  3. **Call via cURL (`POST`):**
+     ```bash
+     curl http://127.0.0.1:8080/v1/chat/completions \
+       -H "Content-Type: application/json" \
+       -d '{
+         "messages": [{"role": "user", "content": "Hello!"}],
+         "stream": false
+       }'
+     ```
+  4. **Call via Python OpenAI SDK:**
+     ```python
+     from openai import OpenAI
+
+     client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="none")
+     response = client.chat.completions.create(
+         model="default",
+         messages=[{"role": "user", "content": "Hello!"}],
+     )
+     print(response.choices[0].message.content)
+     ```
+
+---
+
+### Browser Shows `404 Not Found` on `http://127.0.0.1:8080`
+- **Cause:** The root path (`/`) requires an active RAMLLM server instance (`ramllm serve <model>`).
+- **Remedies:**
+  1. Ensure the server is actively running:
+     ```bash
+     ramllm serve <model.gguf>
+     ```
+  2. Visit the built-in RAMLLM Studio at `http://127.0.0.1:8080/` to monitor memory usage and chat interactively.
+  3. Check Swagger documentation at `http://127.0.0.1:8080/docs`.
+

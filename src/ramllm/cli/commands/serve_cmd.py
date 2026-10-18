@@ -340,10 +340,12 @@ def serve_command(
     register_engine(record)
 
     console.print(
-        f"[bold green]Starting RAMLLM API server on http://{host}:{actual_port}...[/bold green]"
+        f"[bold green]Starting RAMLLM API server on http://{host}:{actual_port}...[/bold green]\n"
+        f"  • Web UI & Chat: [cyan]http://{host}:{actual_port}/[/cyan]\n"
+        f"  • API Docs:      [cyan]http://{host}:{actual_port}/docs[/cyan]\n"
+        f"  • OpenAI API:    [dim]POST[/dim] [cyan]http://{host}:{actual_port}/v1/chat/completions[/cyan]\n"
+        f"  • Metrics:       [dim]GET[/dim]  [cyan]http://{host}:{actual_port}/ramllm/metrics[/cyan]"
     )
-    console.print(f"OpenAI endpoint: http://{host}:{actual_port}/v1/chat/completions")
-    console.print(f"Metrics endpoint: http://{host}:{actual_port}/ramllm/metrics")
 
     try:
         import uvicorn
